@@ -1,1992 +1,572 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pulso</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tu salud, en claro</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="/assets/img/liderapia-lockup.png">
+<script>(function(){try{var t=localStorage.getItem("tema");if(t==="oscuro"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.dataset.tema="oscuro"}catch(e){}})()</script>
+<link rel="stylesheet" href="/assets/estilo.css">
 <style>
-:root{
-  color-scheme: light;
-  --page:#f9f9f7; --surface:#fcfcfb; --surface-2:#f3f2ee;
-  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
-  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
-  --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
-  --sleep-rem:#86b6ef; --sleep-core:#3987e5; --sleep-deep:#184f95; --sleep-awake:#eb6834;
-  --good:#0ca30c; --good-text:#006300; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
-  --accent:#2a78d6; --accent-soft:rgba(42,120,214,.10);
+/* ---------- tokens de las gráficas (paleta validada, claro y oscuro) ---------- */
+:root {
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+  --s1-linea: #1c5cab;          /* media móvil: la misma familia, un paso más oscura */
+  --otros: #898781;             /* "Otros" en las apiladas */
+  --bueno: #006300; --malo: #d03b3b;
+  /* rampa secuencial (calendario): un solo tono, de claro a oscuro */
+  --r0: #ecebe4; --r1: #cde2fb; --r2: #9ec5f4; --r3: #6da7ec; --r4: #3987e5; --r5: #1c5cab;
 }
-@media (prefers-color-scheme: dark){
-  :root:where(:not([data-theme="light"])){
-    color-scheme: dark;
-    --page:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
-    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
-    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
-    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
-    --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
-    --sleep-rem:#9ec5f4; --sleep-core:#5598e7; --sleep-deep:#256abf; --sleep-awake:#d95926;
-    --good-text:#0ca30c;
-    --accent:#3987e5; --accent-soft:rgba(57,135,229,.14);
-  }
+:root[data-tema="oscuro"] {
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  --s1-linea: #86b6ef;
+  --bueno: #0ca30c; --malo: #e66767;
+  /* en oscuro la rampa arranca pegada a la superficie y sube hacia la luz */
+  --r0: #26262c; --r1: #0d366b; --r2: #184f95; --r3: #2a78d6; --r4: #5598e7; --r5: #9ec5f4;
 }
-:root[data-theme="dark"]{
-  color-scheme: dark;
-  --page:#0d0d0d; --surface:#1a1a19; --surface-2:#232322;
-  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
-  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
-  --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
-  --sleep-rem:#9ec5f4; --sleep-core:#5598e7; --sleep-deep:#256abf; --sleep-awake:#d95926;
-  --good-text:#0ca30c;
-  --accent:#3987e5; --accent-soft:rgba(57,135,229,.14);
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:var(--page); color:var(--ink);
-  font-family:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size:15px; line-height:1.5;
-  -webkit-font-smoothing:antialiased;
-}
-h1,h2,h3{font-family:"Bricolage Grotesque","Instrument Sans",system-ui,sans-serif; text-wrap:balance; margin:0}
-.wrap{max-width:1080px; margin:0 auto; padding:0 20px}
-header.app{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0 10px}
-.brand{display:flex; align-items:baseline; gap:10px}
-.brand h1{font-size:26px; font-weight:700; letter-spacing:-.02em}
-.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block;transform:translateY(-1px)}
-.brand small{color:var(--muted); font-size:13px}
-.file-state{font-size:13px; color:var(--ink-2); display:flex; align-items:center; gap:10px; flex-wrap:wrap}
-button, .btn{
-  font:inherit; font-weight:500; color:var(--ink);
-  background:var(--surface); border:1px solid var(--ring); border-radius:8px;
-  padding:7px 14px; cursor:pointer;
-}
-button:hover{background:var(--surface-2)}
-button:focus-visible, a:focus-visible, [tabindex]:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
-button.primary{background:var(--accent); color:#fff; border-color:transparent}
-button.primary:hover{filter:brightness(1.06); background:var(--accent)}
-button.ghost{background:transparent; border-color:transparent; color:var(--ink-2)}
-button.ghost:hover{background:var(--surface-2)}
 
-/* ---------- landing ---------- */
-#landing{padding:32px 0 64px}
-.hero{max-width:640px; margin:24px auto 28px; text-align:center}
-.hero h2{font-size:34px; font-weight:700; letter-spacing:-.02em; margin-bottom:10px}
-.hero p{color:var(--ink-2); max-width:56ch; margin:0 auto}
-.drop{
-  margin:0 auto; max-width:640px; border:1.5px dashed var(--axis); border-radius:14px;
-  background:var(--surface); padding:42px 24px; text-align:center; cursor:pointer;
-  transition:border-color .15s, background .15s;
-}
-.drop.over{border-color:var(--accent); background:var(--accent-soft)}
-.drop strong{display:block; font-size:17px; margin-bottom:6px}
-.drop span{color:var(--muted); font-size:13.5px}
-.landing-actions{display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap}
-.howto{max-width:640px; margin:36px auto 0; background:var(--surface); border:1px solid var(--ring); border-radius:14px; padding:22px 26px}
-.howto h3{font-size:16px; margin-bottom:10px}
-.howto ol{margin:0; padding-left:20px; color:var(--ink-2)}
-.howto li{margin:6px 0}
-.privacy{max-width:640px; margin:14px auto 0; text-align:center; color:var(--muted); font-size:13px}
-#progress{max-width:640px; margin:22px auto 0; display:none}
-#progress .bar{height:8px; border-radius:4px; background:var(--surface-2); overflow:hidden; border:1px solid var(--ring)}
-#progress .bar i{display:block; height:100%; width:0%; background:var(--accent); border-radius:4px; transition:width .2s}
-#progress p{text-align:center; color:var(--ink-2); font-size:13.5px; margin:8px 0 0; font-variant-numeric:tabular-nums}
+/* En pantalla grande (el Mac) la página se ensancha y aprovecha el sitio. */
+.contenedor { max-width: 1500px; }
 
-/* ---------- dashboard chrome ---------- */
-#dash{display:none; padding-bottom:80px}
-.filters{
-  position:sticky; top:0; z-index:30; background:var(--page);
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-  padding:10px 0 12px; border-bottom:1px solid var(--grid); margin-bottom:6px;
-}
-.range-group{display:flex; gap:4px; background:var(--surface); border:1px solid var(--ring); border-radius:9px; padding:3px}
-.range-group button{border:none; background:transparent; padding:5px 12px; border-radius:6px; font-size:13.5px; color:var(--ink-2)}
-.range-group button[aria-pressed="true"]{background:var(--accent); color:#fff; font-weight:600}
-.filters .spacer{flex:1}
-.filters .range-label{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
-nav.tabs{display:flex; gap:2px; margin:10px 0 22px; overflow-x:auto; scrollbar-width:none}
-nav.tabs::-webkit-scrollbar{display:none}
-nav.tabs button{
-  border:none; background:transparent; color:var(--ink-2); font-size:14.5px; font-weight:500;
-  padding:8px 14px; border-radius:8px; white-space:nowrap;
-}
-nav.tabs button[aria-selected="true"]{background:var(--surface); color:var(--ink); font-weight:600; box-shadow:inset 0 0 0 1px var(--ring)}
-section.tab-panel{display:none}
-section.tab-panel.active{display:block}
-.section-title{font-size:20px; font-weight:700; letter-spacing:-.01em; margin:26px 0 4px}
-.section-sub{color:var(--muted); font-size:13.5px; margin:0 0 14px}
+/* ---------- estructura ---------- */
+.cabecera-pagina { padding: 44px 0 10px; }
+.cabecera-pagina h1 { font-weight: 900; font-size: clamp(30px, 5vw, 44px); line-height: 1.1; }
+.cabecera-pagina .sub { color: var(--tinta-2); max-width: 640px; margin-top: 10px; }
 
-/* ---------- tiles & cards ---------- */
-.tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:12px; margin-bottom:18px}
-.tile{background:var(--surface); border:1px solid var(--ring); border-radius:12px; padding:14px 16px 12px; min-width:0}
-.tile .label{font-size:13px; color:var(--ink-2)}
-.tile .value{font-size:27px; font-weight:600; letter-spacing:-.01em; margin-top:2px}
-.tile .value small{font-size:14px; color:var(--muted); font-weight:500; margin-left:3px}
-.tile .delta{font-size:12.5px; margin-top:2px; display:flex; align-items:center; gap:4px; color:var(--muted)}
-.tile .delta.up-good,.tile .delta.down-good{color:var(--good-text); font-weight:600}
-.tile .delta.up-bad,.tile .delta.down-bad{color:var(--critical); font-weight:600}
-.tile svg.spark{display:block; width:100%; height:34px; margin-top:8px}
-.cards{display:grid; grid-template-columns:1fr 1fr; gap:14px}
-.cards .full{grid-column:1 / -1}
-@media (max-width:860px){.cards{grid-template-columns:1fr}}
-.card{background:var(--surface); border:1px solid var(--ring); border-radius:14px; padding:16px 18px 12px; min-width:0}
-.card-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:2px}
-.card-head h3{font-size:15.5px; font-weight:600; font-family:"Instrument Sans",system-ui,sans-serif}
-.card-head .unit{color:var(--muted); font-size:12.5px}
-.card-sub{color:var(--muted); font-size:12.5px; margin:0 0 6px}
-.card .table-toggle{font-size:12.5px; padding:3px 9px}
-.chart-box{position:relative}
-.chart-box svg.chart{display:block; width:100%; height:auto}
-.legend{display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 2px; font-size:12.5px; color:var(--ink-2)}
-.legend .key{display:inline-flex; align-items:center; gap:6px}
-.legend .swatch{width:10px; height:10px; border-radius:3px; display:inline-block}
-.legend .linekey{width:14px; height:2px; border-radius:1px; display:inline-block}
-.tooltip{
-  position:absolute; pointer-events:none; z-index:20; display:none;
-  background:var(--surface); border:1px solid var(--ring); border-radius:9px;
-  box-shadow:0 4px 18px rgba(0,0,0,.13); padding:8px 11px; font-size:12.5px; min-width:130px;
+main { padding-bottom: 70px; }
+section { margin-top: 26px; }
+h2 { font-weight: 800; font-size: 20px; margin-bottom: 4px; }
+.sub-seccion { color: var(--ceniza); font-size: 14px; margin-bottom: 14px; }
+
+.tarjeta {
+  background: var(--blanco); border-radius: var(--radio); box-shadow: var(--sombra-suave);
+  padding: 20px 22px; margin-top: 16px;
 }
-.tooltip .tt-date{color:var(--muted); margin-bottom:3px}
-.tooltip .tt-row{display:flex; align-items:center; gap:7px; margin:2px 0}
-.tooltip .tt-row .k{width:14px; height:3px; border-radius:2px; flex:none}
-.tooltip .tt-row .v{font-weight:600; font-variant-numeric:tabular-nums}
-.tooltip .tt-row .n{color:var(--ink-2)}
-.data-table{display:none; max-height:280px; overflow:auto; margin-top:8px; border:1px solid var(--grid); border-radius:8px}
-.data-table table{width:100%; border-collapse:collapse; font-size:12.5px; font-variant-numeric:tabular-nums}
-.data-table th,.data-table td{padding:5px 10px; text-align:right; border-bottom:1px solid var(--grid)}
-.data-table th:first-child,.data-table td:first-child{text-align:left}
-.data-table th{position:sticky; top:0; background:var(--surface-2); color:var(--ink-2); font-weight:600}
-.insight-list{display:grid; gap:10px; margin:14px 0}
-.insight{
-  display:flex; gap:12px; align-items:flex-start; background:var(--surface);
-  border:1px solid var(--ring); border-radius:12px; padding:12px 16px;
+.cab-tarjeta { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cab-tarjeta h3 { font-weight: 800; font-size: 16px; }
+.sub-tarjeta { color: var(--ceniza); font-size: 13px; margin-top: 2px; }
+.viz { margin-top: 14px; }
+.dos-columnas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .dos-columnas { grid-template-columns: 1fr; } }
+.dos-columnas .tarjeta { margin-top: 0; }
+
+/* ---------- carga ---------- */
+.pasos-export { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+@media (max-width: 760px) { .pasos-export { grid-template-columns: 1fr; } }
+.paso { background: var(--blanco); border-radius: var(--radio); box-shadow: var(--sombra-suave); padding: 18px; }
+.paso .num { font-weight: 900; font-size: 22px; color: var(--rojo); }
+.paso p { font-size: 14px; color: var(--tinta-2); margin-top: 6px; }
+#zona-carga {
+  border: 2px dashed var(--borde-2); border-radius: var(--radio); padding: 46px 24px;
+  text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+  background: var(--blanco);
 }
-.insight .badge{
-  flex:none; width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center;
-  font-size:14px; font-weight:700; margin-top:1px;
+#zona-carga.sobre, #zona-carga:hover { border-color: var(--tinta); }
+#zona-carga strong { font-size: 17px; }
+#zona-carga p { color: var(--ceniza); font-size: 14px; margin-top: 6px; }
+.privacidad-nota { color: var(--ceniza); font-size: 13px; margin-top: 14px; text-align: center; }
+#cargando { text-align: center; padding: 40px 0; }
+.pista-progreso { height: 8px; border-radius: 99px; background: var(--borde); max-width: 420px; margin: 16px auto 10px; overflow: hidden; }
+#progreso { height: 100%; width: 0%; border-radius: 99px; background: var(--s1); transition: width .3s; }
+#error-carga { color: var(--malo); font-weight: 700; margin-top: 14px; text-align: center; }
+
+/* ---------- barra de datos y filtros ---------- */
+.barra-datos { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-top: 8px; }
+.barra-datos .resumen { color: var(--ceniza); font-size: 13px; }
+.barra-datos .acciones { display: flex; gap: 8px; }
+.boton-suave {
+  border: 1.5px solid var(--borde-2); background: transparent; color: var(--tinta);
+  font: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 99px; cursor: pointer;
 }
-.insight .badge.good{background:rgba(12,163,12,.14); color:var(--good-text)}
-.insight .badge.bad{background:rgba(208,59,59,.13); color:var(--critical)}
-.insight .badge.neutral{background:var(--surface-2); color:var(--ink-2)}
-.insight p{margin:0}
-.insight p b{font-weight:600}
-.insight small{color:var(--muted)}
-.empty-note{color:var(--muted); background:var(--surface); border:1px dashed var(--axis); border-radius:12px; padding:18px; text-align:center; margin:12px 0}
-.explorer-bar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:14px 0}
-.explorer-bar select, .explorer-bar input{
-  font:inherit; color:var(--ink); background:var(--surface); border:1px solid var(--ring);
-  border-radius:8px; padding:7px 10px; max-width:100%;
+.boton-suave:hover { border-color: var(--tinta); }
+#filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
+#filtros .preset {
+  border: 1.5px solid var(--borde-2); background: var(--blanco); color: var(--tinta);
+  font: inherit; font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 99px; cursor: pointer;
 }
-footer.app{margin-top:60px; padding:18px 0 30px; color:var(--muted); font-size:12.5px; border-top:1px solid var(--grid)}
-@media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+#filtros .preset:hover { border-color: var(--tinta); }
+#filtros .preset.activo { background: var(--linea-fuerte); border-color: var(--linea-fuerte); color: var(--papel); }
+#filtros .preset.activo::before { content: "✓ "; font-weight: 900; }
+#filtros .personalizado { display: flex; align-items: center; gap: 6px; margin-left: 6px; color: var(--ceniza); font-size: 13px; }
+#filtros input[type="date"] {
+  border: 1.5px solid var(--borde-2); border-radius: var(--radio-sm); background: var(--blanco);
+  color: var(--tinta); font: inherit; font-size: 13px; padding: 6px 8px;
+}
+
+/* ---------- KPI ---------- */
+.rejilla-kpi { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-top: 18px; }
+.kpi { background: var(--blanco); border-radius: var(--radio); box-shadow: var(--sombra-suave); padding: 16px 18px; }
+.kpi-etiqueta { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ceniza); }
+.kpi-valor { font-size: 26px; font-weight: 800; margin-top: 4px; }
+.kpi-mini .kpi-valor { font-size: 20px; }
+.kpi-delta { font-size: 12px; font-weight: 700; margin-top: 4px; }
+.kpi-delta.bueno { color: var(--bueno); }
+.kpi-delta.malo { color: var(--malo); }
+.kpi-delta.neutro { color: var(--ceniza); }
+.spark { display: block; margin-top: 8px; }
+.spark-linea { fill: none; stroke: var(--ceniza); stroke-width: 1.5; opacity: .7; }
+.spark-punto { fill: var(--s1); stroke: var(--blanco); stroke-width: 2; }
+
+/* ---------- tendencias ---------- */
+#lista-tendencias { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px 22px; margin-top: 12px; }
+.tendencia { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+.tend-flecha { font-weight: 900; }
+.tendencia.bueno .tend-flecha { color: var(--bueno); }
+.tendencia.malo .tend-flecha { color: var(--malo); }
+.tendencia.neutro .tend-flecha { color: var(--ceniza); }
+.tend-detalle { color: var(--ceniza); font-size: 13px; }
+
+/* ---------- gráficas ---------- */
+.viz-grid { stroke: var(--borde); stroke-width: 1; }
+.viz-eje { stroke: var(--borde-2); stroke-width: 1; }
+.viz-tick { fill: var(--ceniza); font-size: 11px; font-family: inherit; }
+.viz-linea { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.viz-punto { stroke: var(--blanco); stroke-width: 2; }
+.viz-etiqueta { fill: var(--tinta); font-size: 11px; font-weight: 700; }
+.viz-cruz { stroke: var(--ceniza); stroke-width: 1; }
+svg { display: block; }
+
+.viz-leyenda { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 13px; color: var(--tinta-2); }
+.viz-leyenda-item { display: inline-flex; align-items: center; gap: 6px; }
+.viz-sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.viz-sw-linea { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+.viz-tip {
+  position: absolute; z-index: 50; pointer-events: none; max-width: 260px;
+  background: var(--blanco); color: var(--tinta); border: 1px solid var(--borde-2);
+  border-radius: 10px; box-shadow: var(--sombra-suave-2); padding: 9px 12px; font-size: 12.5px;
+}
+.viz-tip-titulo { font-weight: 800; margin-bottom: 4px; }
+.viz-tip-fila { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.viz-tip-fila strong { font-weight: 800; }
+.viz-tip-fila span { color: var(--ceniza); }
+.viz-tip-clave { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* ---------- tablas ---------- */
+.btn-tabla {
+  border: none; background: transparent; color: var(--ceniza); font: inherit; font-size: 12px;
+  font-weight: 700; cursor: pointer; text-decoration: underline; white-space: nowrap; padding: 4px 0;
+}
+.btn-tabla:hover { color: var(--tinta); }
+.viz-tabla { margin-top: 12px; max-height: 320px; overflow: auto; border-top: 1px solid var(--borde); }
+.viz-tabla table, .tabla-entrenos table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.viz-tabla th, .viz-tabla td, .tabla-entrenos th, .tabla-entrenos td {
+  text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--borde);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.viz-tabla th, .tabla-entrenos th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ceniza); position: sticky; top: 0; background: var(--blanco); }
+.tabla-entrenos { overflow-x: auto; margin-top: 12px; }
+
+/* ---------- explorador ---------- */
+#sel-metrica {
+  border: 1.5px solid var(--borde-2); border-radius: var(--radio-sm); background: var(--blanco);
+  color: var(--tinta); font: inherit; font-size: 14px; font-weight: 600; padding: 9px 12px; max-width: 100%;
+}
+#stats-metrica { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+
+footer { border-top: 1px solid var(--borde-2); padding: 26px 0 40px; color: var(--ceniza); font-size: 13px; }
+
+/* ---------- calendario (panorama) ---------- */
+.cal-celda:hover { stroke: var(--tinta); stroke-width: 1.5; }
+.cal-escala { display: flex; align-items: center; gap: 4px; margin-top: 10px; font-size: 12px; color: var(--ceniza); }
+.cal-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.cab-controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.selector-mini {
+  border: 1.5px solid var(--borde-2); border-radius: var(--radio-sm); background: var(--blanco);
+  color: var(--tinta); font: inherit; font-size: 13px; font-weight: 600; padding: 7px 10px;
+}
+
+/* ---------- inteligencia ---------- */
+.grid-inteligencia { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 1020px) { .grid-inteligencia { grid-template-columns: 1fr; } }
+.grid-inteligencia .tarjeta { margin-top: 0; }
+#lista-hallazgos { margin-top: 12px; display: flex; flex-direction: column; gap: 14px; }
+.hallazgo { display: flex; gap: 12px; align-items: baseline; }
+.hallazgo strong { font-size: 15px; }
+.hallazgo p { color: var(--ceniza); font-size: 13.5px; margin-top: 2px; }
+.hallazgo-icono { font-weight: 900; flex: 0 0 auto; }
+.hallazgo.bueno .hallazgo-icono { color: var(--bueno); }
+.hallazgo.malo .hallazgo-icono { color: var(--malo); }
+.hallazgo.neutro .hallazgo-icono { color: var(--ceniza); }
+.cruce-controles { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.cruce-controles label { font-size: 12px; font-weight: 700; color: var(--ceniza); }
+#lectura-dispersion { color: var(--ceniza); font-size: 13px; margin-top: 10px; }
+
+#lista-consejos { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+.consejo { display: flex; gap: 12px; align-items: baseline; font-size: 14px; }
+.consejo p { color: var(--tinta-2); }
+.consejo-icono { font-weight: 900; flex: 0 0 auto; }
+.consejo.ok .consejo-icono { color: var(--bueno); }
+.consejo.accion .consejo-icono { color: var(--s1); }
+#lista-records { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+#lista-records .kpi { box-shadow: none; border: 1px solid var(--borde); padding: 12px 14px; }
+.record-fecha { color: var(--ceniza); font-size: 12px; margin-top: 3px; }
+
+/* ---------- comparativa ---------- */
+.comp-resumen { margin-top: 12px; font-size: 15px; font-weight: 600; line-height: 1.55; }
+#lista-comparativa { margin-top: 14px; display: flex; flex-direction: column; }
+.comp-fila {
+  display: grid; grid-template-columns: 240px 300px 1fr; gap: 8px 24px; align-items: center;
+  padding: 13px 0; border-top: 1px solid var(--borde);
+}
+@media (max-width: 1020px) { .comp-fila { grid-template-columns: 1fr 1fr; } .comp-frase { grid-column: 1 / -1; } }
+.comp-valor { font-size: 19px; font-weight: 800; margin-left: 6px; }
+.comp-estado { font-size: 12px; font-weight: 700; margin-top: 2px; }
+.comp-estado.bueno { color: var(--bueno); }
+.comp-estado.malo { color: var(--malo); }
+.comp-estado.neutro { color: var(--ceniza); }
+.comp-frase { color: var(--ceniza); font-size: 13px; line-height: 1.5; }
+.banda-pista { fill: var(--borde); }
+.banda-tipica { fill: var(--otros); opacity: .45; }
+.banda-objetivo { fill: var(--s1); opacity: .22; }
+.banda-punto { fill: var(--s1); stroke: var(--blanco); stroke-width: 2; }
+
+/* ---------- explicaciones ---------- */
+.explica { margin-top: 14px; border-top: 1px solid var(--borde); padding-top: 10px; }
+.explica summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--ceniza); }
+.explica summary:hover { color: var(--tinta); }
+.explica p { color: var(--ceniza); font-size: 13.5px; line-height: 1.6; margin-top: 8px; max-width: 90ch; }
+
+#lista-meds { margin-top: 12px; display: flex; flex-direction: column; gap: 14px; }
+.med-bloque strong { font-size: 15px; }
+.med-tomas { color: var(--ceniza); font-size: 12.5px; }
+.med-bloque p { color: var(--tinta-2); font-size: 13.5px; margin-top: 4px; }
+.aviso-medico { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--borde); color: var(--ceniza); font-size: 12.5px; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="app">
-    <div class="brand"><span class="dot" aria-hidden="true"></span><h1>Pulso</h1><small>panel de salud del iPhone</small></div>
-    <div class="file-state" id="fileState"></div>
+
+<nav>
+  <div class="contenedor">
+    <a class="wordmark" href="/"><img src="/assets/img/liderapia-lockup.png" alt="LIDERAPIA" class="logo-nav"></a>
+    <div class="acciones-nav">
+      <button id="tema" type="button" aria-label="Cambiar tema"></button>
+    </div>
+  </div>
+</nav>
+
+<main class="contenedor">
+  <header class="cabecera-pagina">
+    <div class="eyebrow">Apple Salud · análisis personal</div>
+    <h1>Tu salud, en claro</h1>
+    <p class="sub">Carga el export de la app Salud del iPhone y mira tu actividad, tu sueño por fases, tu corazón y tus entrenamientos: gráficas, medias y tendencias de cualquier periodo. Todo se analiza aquí, en tu navegador: <strong>ningún dato sale de tu dispositivo</strong>.</p>
   </header>
 
-  <div id="landing">
-    <div class="hero">
-      <h2>Tus datos de salud, leídos aquí mismo</h2>
-      <p>Arrastra la exportación de la app Salud de tu iPhone y Pulso la convierte en gráficas, tendencias e ideas — actividad, corazón, sueño con fases y entrenamientos. Todo se procesa en tu navegador: nada se sube a ningún servidor.</p>
+  <!-- ================= carga ================= -->
+  <div id="cargador">
+    <div class="pasos-export">
+      <div class="paso"><div class="num">1</div><strong>Exporta desde el iPhone</strong><p>Abre la app <strong>Salud</strong>, toca tu foto (arriba a la derecha) y elige <em>Exportar todos los datos de salud</em>.</p></div>
+      <div class="paso"><div class="num">2</div><strong>Pásate el archivo</strong><p>El iPhone genera un <code>export.zip</code>. Mándatelo por AirDrop, iCloud o como prefieras hasta este dispositivo.</p></div>
+      <div class="paso"><div class="num">3</div><strong>Cárgalo aquí</strong><p>Suelta el <code>export.zip</code> (o el <code>export.xml</code> de dentro) en la caja de abajo. No hace falta descomprimirlo.</p></div>
     </div>
-    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Seleccionar archivo de exportación de Salud">
-      <strong>Suelta aquí tu <code>exportar.zip</code> o <code>export.xml</code></strong>
-      <span>…o haz clic para elegir el archivo</span>
+
+    <div id="zona-carga" role="button" tabindex="0">
+      <strong>Arrastra aquí tu export.zip</strong>
+      <p>o haz clic para elegir el archivo (.zip o .xml)</p>
+      <input id="archivo" type="file" accept=".zip,.xml" hidden>
     </div>
-    <input type="file" id="fileInput" accept=".zip,.xml" hidden>
-    <div class="landing-actions">
-      <button class="ghost" id="demoBtn">Probar con datos de ejemplo</button>
+    <p id="error-carga" hidden></p>
+    <p class="privacidad-nota">El análisis ocurre íntegramente en tu navegador con un worker local. No hay servidor que reciba nada: puedes comprobarlo desconectando la red antes de cargar el archivo.</p>
+
+    <div id="cargando" hidden>
+      <strong>Analizando tus datos…</strong>
+      <div class="pista-progreso"><div id="progreso"></div></div>
+      <p id="progreso-texto" class="privacidad-nota">Leyendo…</p>
     </div>
-    <div id="progress" aria-live="polite">
-      <div class="bar"><i id="progressBar"></i></div>
-      <p id="progressText">Preparando…</p>
-    </div>
-    <div class="howto">
-      <h3>Cómo exportar tus datos desde el iPhone</h3>
-      <ol>
-        <li>Abre la app <b>Salud</b> (icono blanco con un corazón rojo).</li>
-        <li>En la pestaña <b>Resumen</b>, toca tu <b>foto de perfil o tus iniciales</b>, arriba a la derecha.</li>
-        <li>Baja hasta el final y toca <b>«Exportar todos los datos de salud»</b> → <b>Exportar</b>. Puede tardar unos minutos; no bloquees el iPhone mientras prepara el archivo.</li>
-        <li>Se abrirá la hoja de compartir con el archivo <b>exportar.zip</b>. Elige una opción:
-          <ul style="margin:6px 0 0; padding-left:18px">
-            <li><b>Sin ordenador</b>: toca <b>«Guardar en Archivos»</b>, abre esta misma página en Safari del iPhone, pulsa el recuadro de arriba y elige el zip desde la app Archivos.</li>
-            <li><b>Con ordenador</b>: envíatelo por <b>AirDrop</b> (Mac), <b>correo</b> o <b>iCloud Drive</b>, y arrástralo aquí.</li>
-          </ul>
-        </li>
-      </ol>
-    </div>
-    <p class="privacy">🔒 Privacidad: el archivo se lee localmente con JavaScript. No hay servidor, ni analítica, ni red.</p>
   </div>
 
-  <div id="dash">
-    <div class="filters">
-      <div class="range-group" id="rangeGroup" role="group" aria-label="Rango de fechas"></div>
-      <span class="range-label" id="rangeLabel"></span>
-      <span class="spacer"></span>
-      <button class="ghost" id="resetBtn">Cargar otro archivo</button>
+  <!-- ================= aplicación ================= -->
+  <div id="app" hidden>
+    <div class="barra-datos">
+      <span class="resumen" id="resumen-datos"></span>
+      <span class="acciones">
+        <button class="boton-suave" id="otro-archivo" type="button">Cargar otro archivo</button>
+        <button class="boton-suave" id="borrar" type="button">Borrar mis datos</button>
+      </span>
     </div>
-    <nav class="tabs" id="tabs" role="tablist"></nav>
-    <section class="tab-panel" id="panel-resumen" role="tabpanel"></section>
-    <section class="tab-panel" id="panel-actividad" role="tabpanel"></section>
-    <section class="tab-panel" id="panel-corazon" role="tabpanel"></section>
-    <section class="tab-panel" id="panel-sueno" role="tabpanel"></section>
-    <section class="tab-panel" id="panel-entrenos" role="tabpanel"></section>
-    <section class="tab-panel" id="panel-tendencias" role="tabpanel"></section>
-    <section class="tab-panel" id="panel-explorador" role="tabpanel"></section>
-    <footer class="app">Pulso lee la exportación oficial de Apple Salud (<code>export.xml</code>). Los totales diarios se deduplican por fuente (iPhone + Apple Watch) para no contar pasos dos veces. Esta herramienta no ofrece consejo médico.</footer>
+
+    <div id="filtros" role="group" aria-label="Rango de fechas">
+      <button class="preset" type="button" data-dias="7">7 días</button>
+      <button class="preset" type="button" data-dias="30">30 días</button>
+      <button class="preset activo" type="button" data-dias="90">90 días</button>
+      <button class="preset" type="button" data-dias="365">1 año</button>
+      <button class="preset" type="button" data-dias="todo">Todo</button>
+      <span class="personalizado">
+        <label for="f-ini">de</label> <input type="date" id="f-ini">
+        <label for="f-fin">a</label> <input type="date" id="f-fin">
+      </span>
+    </div>
+
+    <div id="kpis" class="rejilla-kpi"></div>
+
+    <section id="s-comparativa">
+      <div class="tarjeta" id="c-comparativa">
+        <div class="cab-tarjeta"><div>
+          <h3>Tú frente a la media de hombres de tu edad</h3>
+          <p class="sub-tarjeta" id="comparativa-sub"></p>
+        </div></div>
+        <p id="comparativa-resumen" class="comp-resumen"></p>
+        <div id="fila-edad" class="cruce-controles" hidden>
+          <label for="edad-manual">Tu edad</label>
+          <input type="number" id="edad-manual" class="selector-mini" min="18" max="100" style="width:80px">
+          <button type="button" id="edad-aplicar" class="boton-suave">Comparar</button>
+        </div>
+        <div id="lista-comparativa"></div>
+        <details class="explica">
+          <summary>¿Cómo leer esta comparación?</summary>
+          <p>Es como una carrera popular: no compites contra el récord olímpico, sino contra los dorsales de tu categoría de edad. La franja gris de cada barra es donde está la mayoría de hombres de tu edad; la franja azul, la zona a la que aspira alguien claramente por encima de la media; el punto azul eres tú. Los rangos son orientativos, tomados de literatura general (Cooper para VO₂ máx, poblacionales para pasos y sueño), no valores clínicos: sirven para orientar el entrenamiento, no para diagnosticar.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="s-panorama">
+      <div class="tarjeta" id="c-panorama">
+        <div class="cab-tarjeta">
+          <div>
+            <h3>Panorama del periodo</h3>
+            <p class="sub-tarjeta"></p>
+          </div>
+          <span class="cab-controles"><select id="sel-panorama" class="selector-mini" aria-label="Métrica del calendario"></select></span>
+        </div>
+        <div class="viz"></div>
+        <details class="explica">
+          <summary>¿Qué me dice esto?</summary>
+          <p>Es la vista de pájaro: cada celda es un día y el color, cuánto hiciste. Buscas dos cosas. Una, las <strong>rachas</strong>: bloques oscuros seguidos son hábitos consolidados, y los claros suelen coincidir con viajes, enfermedad o vacaciones (compruébalo pasando el cursor). Y dos, las <strong>columnas</strong>: si una columna (un día de la semana) sale sistemáticamente clara, ese día tu rutina no acompaña; en tu «semana tipo», más abajo, lo verás medido.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="s-inteligencia">
+      <h2>Inteligencia: tus datos, cruzados</h2>
+      <p class="sub-seccion">Cruces automáticos entre actividad, sueño, corazón y lo que anotas (medicación, cafeína, alcohol…). Son correlaciones sobre tus propios días, no diagnósticos: la causalidad puede ir en cualquier sentido.</p>
+      <div class="grid-inteligencia">
+        <div class="tarjeta" id="c-hallazgos">
+          <div class="cab-tarjeta"><div>
+            <h3>Hallazgos</h3>
+            <p class="sub-tarjeta">Lo que aparece al comparar tus días entre sí.</p>
+          </div></div>
+          <div id="lista-hallazgos"></div>
+        </div>
+        <div class="tarjeta" id="c-dispersion">
+          <div class="cab-tarjeta"><div>
+            <h3>Cruza tú dos métricas</h3>
+            <p class="sub-tarjeta">Cada punto es un día. La recta resume la relación.</p>
+          </div></div>
+          <div class="cruce-controles">
+            <label for="sel-x">Horizontal</label> <select id="sel-x" class="selector-mini"></select>
+            <label for="sel-y">Vertical</label> <select id="sel-y" class="selector-mini"></select>
+          </div>
+          <div class="viz"></div>
+          <p id="lectura-dispersion"></p>
+        </div>
+      </div>
+      <div class="grid-inteligencia" style="margin-top:16px">
+        <div class="tarjeta" id="c-inesperados">
+          <div class="cab-tarjeta"><div>
+            <h3>Patrones inesperados</h3>
+            <p class="sub-tarjeta">Un barrido por todos los cruces posibles, sobre las variaciones día a día, quitando lo ya contado arriba y lo obvio (pasos↔distancia…). Sobrevive solo lo que se mueve junto de verdad.</p>
+          </div></div>
+          <div id="lista-inesperados"></div>
+        </div>
+        <div class="tarjeta" id="c-meds" hidden>
+          <div class="cab-tarjeta"><div>
+            <h3>Medicamentos y suplementos</h3>
+            <p class="sub-tarjeta">Qué cambia en tu sueño, HRV y actividad los días que tomas cada cosa que anotas en Salud.</p>
+          </div></div>
+          <div id="lista-meds"></div>
+          <p class="aviso-medico">⚠ Esto no mide el efecto terapéutico ni sustituye a tu médico. No cambies ninguna pauta por estas correlaciones; coméntalas en consulta.</p>
+        </div>
+      </div>
+      <div class="grid-inteligencia" style="margin-top:16px">
+        <div class="tarjeta" id="c-consejos">
+          <div class="cab-tarjeta"><div>
+            <h3>Qué puedes hacer</h3>
+            <p class="sub-tarjeta">Consejos generales de salud pública aplicados a tus números.</p>
+          </div></div>
+          <div id="lista-consejos"></div>
+        </div>
+        <div class="tarjeta" id="s-records">
+          <div class="cab-tarjeta"><div>
+            <h3>Récords del periodo</h3>
+            <p class="sub-tarjeta">Tus mejores marcas dentro del rango elegido.</p>
+          </div></div>
+          <div id="lista-records"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tendencias" class="tarjeta">
+      <div class="cab-tarjeta"><div>
+        <h3>Tendencias</h3>
+        <p class="sub-tarjeta" id="tendencias-sub"></p>
+      </div></div>
+      <div id="lista-tendencias"></div>
+    </section>
+
+    <section>
+      <h2>Actividad</h2>
+      <div class="tarjeta" id="c-pasos">
+        <div class="cab-tarjeta"><div>
+          <h3>Pasos</h3>
+          <p class="sub-tarjeta"></p>
+        </div></div>
+        <div class="viz"></div>
+        <details class="explica">
+          <summary>¿Qué me dice esto?</summary>
+          <p>Fíjate en la línea oscura (media de 7 días) más que en las barras: las barras son el tiempo de cada día, la línea es el clima. Si la línea sube, tu vida se está moviendo más aunque haya días flojos sueltos. Un buen objetivo no es «10.000 cada día», sino que la línea no baje de tu suelo (para ti, la zona de 8.000).</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="s-semana">
+      <h2>Tu semana tipo</h2>
+      <div class="dos-columnas" style="margin-top:16px">
+        <div class="tarjeta" id="c-semana-pasos">
+          <div class="cab-tarjeta"><div>
+            <h3>Pasos según el día de la semana</h3>
+            <p class="sub-tarjeta">Media de cada día de la semana en el rango elegido.</p>
+          </div></div>
+          <div class="viz"></div>
+        </div>
+        <div class="tarjeta" id="c-semana-sueno">
+          <div class="cab-tarjeta"><div>
+            <h3>Sueño según el día de la semana</h3>
+            <p class="sub-tarjeta">La noche del domingo es la que acaba el lunes por la mañana.</p>
+          </div></div>
+          <div class="viz"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="s-corazon">
+      <h2>Corazón</h2>
+      <div class="dos-columnas" style="margin-top:16px">
+        <div class="tarjeta" id="c-fcreposo">
+          <div class="cab-tarjeta"><div>
+            <h3>Frecuencia cardiaca en reposo</h3>
+            <p class="sub-tarjeta">Cuanto más baja con el tiempo, mejor forma cardiovascular.</p>
+          </div></div>
+          <div class="viz"></div>
+          <details class="explica">
+            <summary>¿Qué me dice esto?</summary>
+            <p>Es el ralentí del motor: un motor afinado gira despacio en parado. La línea que baja mes a mes es forma física ganada. Al revés también informa: un pico repentino de varios días suele adelantarse a un resfriado, una mala racha de sueño o estrés — es tu sistema avisando antes de que tú lo notes.</p>
+          </details>
+        </div>
+        <div class="tarjeta" id="c-hrv">
+          <div class="cab-tarjeta"><div>
+            <h3>Variabilidad (HRV)</h3>
+            <p class="sub-tarjeta">Una HRV alta suele indicar buena recuperación.</p>
+          </div></div>
+          <div class="viz"></div>
+          <details class="explica">
+            <summary>¿Qué me dice esto?</summary>
+            <p>La suspensión del coche: cuanto más recorrido tiene, mejor absorbe los baches. No compares tu HRV con la de nadie (varía muchísimo de persona a persona): compárala contigo. Días por encima de tu media = margen para apretar; varios días seguidos por debajo = el cuerpo pide una marcha menos, aunque te encuentres bien.</p>
+          </details>
+        </div>
+      </div>
+      <div class="tarjeta" id="c-fcdia">
+        <div class="cab-tarjeta"><div>
+          <h3>Frecuencia cardiaca del día</h3>
+          <p class="sub-tarjeta">Mínima, media y máxima de cada día.</p>
+        </div></div>
+        <div class="viz"></div>
+      </div>
+    </section>
+
+    <section id="s-sueno">
+      <h2>Sueño</h2>
+      <p class="sub-seccion">Cuando hay varias fuentes (iPhone y Apple Watch), cada noche se toma la que más sueño registró para no contar horas dos veces.</p>
+      <div id="kpis-sueno" class="rejilla-kpi"></div>
+      <div class="tarjeta" id="c-sueno">
+        <div class="cab-tarjeta"><div>
+          <h3>Fases del sueño</h3>
+          <p class="sub-tarjeta"></p>
+        </div></div>
+        <div class="viz"></div>
+        <details class="explica">
+          <summary>¿Qué me dice esto?</summary>
+          <p>La noche es el turno de mantenimiento del cuerpo, con dos cuadrillas. El sueño <strong>profundo</strong> (azul) es la cuadrilla de obra: repara músculo, hueso y sistema inmune, y trabaja sobre todo en la primera mitad de la noche — por eso acostarse tarde se lo come aunque duermas las mismas horas. El <strong>REM</strong> (naranja) es el bibliotecario: archiva memoria y estabiliza el ánimo, y se concentra al final — por eso el despertador temprano recorta REM. El <strong>ligero</strong> es el pasillo entre ambos, y algo de <strong>despierto</strong> es normal: solo preocupa si crece.</p>
+        </details>
+      </div>
+      <div class="tarjeta" id="c-ritmo">
+        <div class="cab-tarjeta"><div>
+          <h3>Tu ritmo: cuándo duermes</h3>
+          <p class="sub-tarjeta">Cada franja es una noche, de acostarte a levantarte. Si las franjas naranjas (viernes y sábado) se desplazan a la derecha, ahí está el jetlag social.</p>
+        </div></div>
+        <div class="viz"></div>
+        <details class="explica">
+          <summary>¿Qué me dice esto?</summary>
+          <p>Tu reloj interno es un animal de costumbres. Si cada fin de semana te acuestas dos horas más tarde, para tu cuerpo es como volar a Moscú el viernes y volver el lunes: eso es el «jetlag social», y explica muchos lunes de resaca sin haber bebido. La imagen ideal aquí es aburrida: todas las franjas alineadas como un código de barras recto. La duración importa, pero la <strong>regularidad</strong> es el multiplicador.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="s-entrenos">
+      <h2>Entrenamientos</h2>
+      <div id="kpis-entrenos" class="rejilla-kpi"></div>
+      <div class="tarjeta" id="c-entrenos">
+        <div class="cab-tarjeta"><div>
+          <h3>Minutos de entrenamiento por semana</h3>
+          <p class="sub-tarjeta">Apilado por tipo de actividad.</p>
+        </div></div>
+        <div class="viz"></div>
+        <details class="explica">
+          <summary>¿Qué me dice esto?</summary>
+          <p>Piensa en dosis, como con un medicamento: 150 minutos semanales es donde empieza el efecto (umbral OMS) y hasta ~300 sigue creciendo. Y mira la mezcla de colores: el cardio cuida el motor, pero a partir de los 40 la fuerza es la que protege el chasis — músculo y hueso. Si una sola actividad domina la torre, la mejora más rentable no suele ser más de lo mismo, sino lo que falta.</p>
+        </details>
+      </div>
+      <div class="tarjeta">
+        <div class="cab-tarjeta"><div>
+          <h3>Últimos entrenamientos</h3>
+          <p class="sub-tarjeta">Los 30 más recientes del rango elegido.</p>
+        </div></div>
+        <div class="tabla-entrenos">
+          <table id="tabla-entrenos">
+            <thead><tr><th>Cuándo</th><th>Actividad</th><th>Duración</th><th>Energía</th><th>Distancia</th><th>FC media</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="tarjeta" id="c-peso">
+        <div class="cab-tarjeta"><div>
+          <h3>Peso</h3>
+          <p class="sub-tarjeta">Las básculas conectadas y las anotaciones a mano aparecen aquí.</p>
+        </div></div>
+        <div class="viz"></div>
+        <details class="explica">
+          <summary>¿Qué me dice esto?</summary>
+          <p>La báscula de un día es una foto movida: el agua, la sal y la hora de la cena la mueven un kilo arriba o abajo sin que cambie nada real. Lee la pendiente de semanas, no el dato de una mañana. Y si entrenas fuerza, un peso plano puede esconder una mejora: músculo que entra, grasa que sale.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="s-explorador">
+      <h2>Explora cualquier métrica</h2>
+      <p class="sub-seccion">Todo lo que tu iPhone y tu Watch han registrado, métrica a métrica: elige una y mira su gráfica, su media y su tendencia en el rango elegido.</p>
+      <select id="sel-metrica" aria-label="Métrica"></select>
+      <div id="stats-metrica"></div>
+      <div class="tarjeta" id="c-explorador">
+        <div class="cab-tarjeta"><div>
+          <h3>Evolución</h3>
+          <p class="sub-tarjeta"></p>
+        </div></div>
+        <div class="viz"></div>
+      </div>
+    </section>
   </div>
-</div>
-<script>
-"use strict";
-/* ============================================================
-   Pulso — utilidades
-   ============================================================ */
-const $ = (s, el=document) => el.querySelector(s);
-const $$ = (s, el=document) => [...el.querySelectorAll(s)];
-const fmtNum = (v, dec=0) => v==null || !isFinite(v) ? "–" :
-  v.toLocaleString("es-ES", {minimumFractionDigits:dec, maximumFractionDigits:dec});
-const fmtCompact = v => {
-  if (v==null || !isFinite(v)) return "–";
-  const a = Math.abs(v);
-  if (a >= 1e6) return fmtNum(v/1e6, 1) + " M";
-  if (a >= 10000) return fmtNum(v/1000, 1) + " mil";
-  return fmtNum(v, a < 10 && a !== Math.round(a) ? 1 : 0);
-};
-const fmtDur = min => {
-  if (min==null || !isFinite(min)) return "–";
-  const t = Math.round(min), h = Math.floor(t/60), m = t%60;
-  return h ? `${h} h ${String(m).padStart(2,"0")} min` : `${m} min`;
-};
-const fmtDurShort = min => {
-  if (min==null || !isFinite(min)) return "–";
-  const t = Math.round(min), h = Math.floor(t/60), m = t%60;
-  return `${h}:${String(m).padStart(2,"0")}`;
-};
-const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-const DIAS = ["lun","mar","mié","jue","vie","sáb","dom"];
-const fmtDay = k => { // k = "2025-03-08"
-  const [y,m,d] = k.split("-");
-  return `${+d} ${MESES[+m-1]} ${y}`;
-};
-const dayToMs = k => Date.UTC(+k.slice(0,4), +k.slice(5,7)-1, +k.slice(8,10));
-const msToDay = ms => {
-  const d = new Date(ms);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;
-};
-const addDays = (k, n) => msToDay(dayToMs(k) + n*86400000);
-const weekday = k => (new Date(dayToMs(k)).getUTCDay() + 6) % 7; // 0=lunes
-// "2024-05-01 07:15:30 +0200" -> epoch ms (usa el huso del propio registro)
-function parseAppleDate(s){
-  if (!s || s.length < 19) return NaN;
-  const y=+s.slice(0,4), mo=+s.slice(5,7), d=+s.slice(8,10),
-        h=+s.slice(11,13), mi=+s.slice(14,16), se=+s.slice(17,19);
-  let off = 0;
-  const tz = s.slice(20).trim();
-  if (tz && (tz[0]==="+"||tz[0]==="-")){
-    const sign = tz[0]==="+" ? 1 : -1;
-    off = sign * ((+tz.slice(1,3))*60 + (+tz.slice(3,5)||0));
-  }
-  return Date.UTC(y,mo-1,d,h,mi,se) - off*60000;
-}
-const escAttrRe = /(\w+)="([^"]*)"/g;
-function parseAttrs(tag){
-  const o = {}; let m;
-  escAttrRe.lastIndex = 0;
-  while ((m = escAttrRe.exec(tag))) o[m[1]] = m[2];
-  return o;
-}
-const decodeXml = s => s.indexOf("&") < 0 ? s :
-  s.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'");
+</main>
 
-/* ============================================================
-   Lector de ZIP (nativo: DecompressionStream, con ZIP64)
-   ============================================================ */
-async function findHealthXmlEntry(buffer){
-  const bytes = new Uint8Array(buffer);
-  const dv = new DataView(buffer);
-  // EOCD
-  let eocd = -1;
-  const minTail = Math.max(0, bytes.length - 70000);
-  for (let i = bytes.length - 22; i >= minTail; i--){
-    if (dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
-  }
-  if (eocd < 0) throw new Error("No parece un archivo ZIP válido.");
-  let count = dv.getUint16(eocd+10, true);
-  let cdOff = dv.getUint32(eocd+16, true);
-  // ZIP64
-  if (count === 0xFFFF || cdOff === 0xFFFFFFFF){
-    for (let i = eocd - 20; i >= minTail; i--){
-      if (dv.getUint32(i, true) === 0x07064b50){ // ZIP64 EOCD locator
-        const z64Off = Number(dv.getBigUint64(i+8, true));
-        if (dv.getUint32(z64Off, true) === 0x06064b50){
-          count = Number(dv.getBigUint64(z64Off+32, true));
-          cdOff = Number(dv.getBigUint64(z64Off+48, true));
-        }
-        break;
-      }
-    }
-  }
-  const td = new TextDecoder();
-  let p = cdOff, best = null;
-  for (let i = 0; i < count && p + 46 <= bytes.length; i++){
-    if (dv.getUint32(p, true) !== 0x02014b50) break;
-    const method = dv.getUint16(p+10, true);
-    let csize = dv.getUint32(p+20, true);
-    let usize = dv.getUint32(p+24, true);
-    const nlen = dv.getUint16(p+28, true);
-    const elen = dv.getUint16(p+30, true);
-    const clen = dv.getUint16(p+32, true);
-    let lhOff = dv.getUint32(p+42, true);
-    const name = td.decode(bytes.subarray(p+46, p+46+nlen));
-    // extra ZIP64
-    let ep = p + 46 + nlen; const eEnd = ep + elen;
-    while (ep + 4 <= eEnd){
-      const id = dv.getUint16(ep, true), sz = dv.getUint16(ep+2, true);
-      if (id === 0x0001){
-        let q = ep + 4;
-        if (usize === 0xFFFFFFFF){ usize = Number(dv.getBigUint64(q, true)); q += 8; }
-        if (csize === 0xFFFFFFFF){ csize = Number(dv.getBigUint64(q, true)); q += 8; }
-        if (lhOff === 0xFFFFFFFF){ lhOff = Number(dv.getBigUint64(q, true)); q += 8; }
-      }
-      ep += 4 + sz;
-    }
-    const lower = name.toLowerCase();
-    if (/(^|\/)export(aci[oó]n|ar)?\.xml$/.test(lower) && !lower.includes("cda")){
-      best = { name, method, csize, usize, lhOff };
-      break;
-    }
-    p = p + 46 + nlen + elen + clen;
-  }
-  if (!best) throw new Error("El ZIP no contiene export.xml / exportación.xml. ¿Es la exportación de la app Salud?");
-  // cabecera local → inicio de los datos
-  const lh = best.lhOff;
-  if (dv.getUint32(lh, true) !== 0x04034b50) throw new Error("ZIP corrupto (cabecera local).");
-  const lnlen = dv.getUint16(lh+26, true), lelen = dv.getUint16(lh+28, true);
-  const dataStart = lh + 30 + lnlen + lelen;
-  const compressed = bytes.subarray(dataStart, dataStart + best.csize);
-  let stream = new Blob([compressed]).stream();
-  if (best.method === 8){
-    if (typeof DecompressionStream === "undefined")
-      throw new Error("Tu navegador no soporta DecompressionStream. Descomprime el ZIP y carga el export.xml directamente.");
-    stream = stream.pipeThrough(new DecompressionStream("deflate-raw"));
-  } else if (best.method !== 0){
-    throw new Error("Método de compresión no soportado: " + best.method);
-  }
-  return { name: best.name, usize: best.usize, stream };
-}
-</script>
-<script>
-"use strict";
-/* ============================================================
-   Registro de métricas
-   ============================================================ */
-// kind: "sum" (acumulativa, se deduplica por fuente) | "avg" (muestral)
-const METRICS = {
-  StepCount:                 {label:"Pasos", unit:"pasos", kind:"sum", dec:0, good:"up"},
-  DistanceWalkingRunning:    {label:"Distancia a pie", unit:"km", kind:"sum", dec:1, good:"up"},
-  DistanceCycling:           {label:"Distancia en bici", unit:"km", kind:"sum", dec:1, good:"up"},
-  DistanceSwimming:          {label:"Distancia nadando", unit:"m", kind:"sum", dec:0, good:"up"},
-  FlightsClimbed:            {label:"Pisos subidos", unit:"pisos", kind:"sum", dec:0, good:"up"},
-  ActiveEnergyBurned:        {label:"Energía activa", unit:"kcal", kind:"sum", dec:0, good:"up"},
-  BasalEnergyBurned:         {label:"Energía en reposo", unit:"kcal", kind:"sum", dec:0, good:null},
-  AppleExerciseTime:         {label:"Minutos de ejercicio", unit:"min", kind:"sum", dec:0, good:"up"},
-  AppleStandTime:            {label:"Tiempo de pie", unit:"min", kind:"sum", dec:0, good:"up"},
-  HeartRate:                 {label:"Frecuencia cardíaca", unit:"ppm", kind:"avg", dec:0, good:null},
-  RestingHeartRate:          {label:"FC en reposo", unit:"ppm", kind:"avg", dec:0, good:"down"},
-  WalkingHeartRateAverage:   {label:"FC media caminando", unit:"ppm", kind:"avg", dec:0, good:"down"},
-  HeartRateVariabilitySDNN:  {label:"Variabilidad FC (VFC)", unit:"ms", kind:"avg", dec:0, good:"up"},
-  HeartRateRecoveryOneMinute:{label:"Recuperación FC (1 min)", unit:"ppm", kind:"avg", dec:0, good:"up"},
-  VO2Max:                    {label:"VO₂ máx", unit:"ml/kg·min", kind:"avg", dec:1, good:"up"},
-  OxygenSaturation:          {label:"Saturación O₂ (SpO₂)", unit:"%", kind:"avg", dec:1, good:"up", scale:100},
-  RespiratoryRate:           {label:"Frecuencia respiratoria", unit:"rpm", kind:"avg", dec:1, good:null},
-  BodyMass:                  {label:"Peso", unit:"kg", kind:"avg", dec:1, good:null},
-  BodyMassIndex:             {label:"IMC", unit:"", kind:"avg", dec:1, good:null},
-  BodyFatPercentage:         {label:"Grasa corporal", unit:"%", kind:"avg", dec:1, good:null, scale:100},
-  LeanBodyMass:              {label:"Masa magra", unit:"kg", kind:"avg", dec:1, good:null},
-  BloodPressureSystolic:     {label:"Tensión sistólica", unit:"mmHg", kind:"avg", dec:0, good:null},
-  BloodPressureDiastolic:    {label:"Tensión diastólica", unit:"mmHg", kind:"avg", dec:0, good:null},
-  BloodGlucose:              {label:"Glucosa", unit:"mg/dL", kind:"avg", dec:0, good:null},
-  BodyTemperature:           {label:"Temperatura corporal", unit:"°C", kind:"avg", dec:1, good:null},
-  AppleSleepingWristTemperature:{label:"Temp. muñeca (sueño)", unit:"°C", kind:"avg", dec:2, good:null},
-  WalkingSpeed:              {label:"Velocidad al caminar", unit:"km/h", kind:"avg", dec:1, good:"up"},
-  WalkingStepLength:         {label:"Longitud de zancada", unit:"cm", kind:"avg", dec:0, good:null},
-  WalkingAsymmetryPercentage:{label:"Asimetría al caminar", unit:"%", kind:"avg", dec:1, good:"down", scale:100},
-  WalkingDoubleSupportPercentage:{label:"Doble apoyo", unit:"%", kind:"avg", dec:1, good:"down", scale:100},
-  SixMinuteWalkTestDistance: {label:"Test 6 min marcha", unit:"m", kind:"avg", dec:0, good:"up"},
-  StairAscentSpeed:          {label:"Velocidad subiendo", unit:"m/s", kind:"avg", dec:2, good:"up"},
-  StairDescentSpeed:         {label:"Velocidad bajando", unit:"m/s", kind:"avg", dec:2, good:"up"},
-  EnvironmentalAudioExposure:{label:"Exposición sonora ambiente", unit:"dB", kind:"avg", dec:0, good:"down"},
-  HeadphoneAudioExposure:    {label:"Exposición sonora auriculares", unit:"dB", kind:"avg", dec:0, good:"down"},
-  TimeInDaylight:            {label:"Luz de día", unit:"min", kind:"sum", dec:0, good:"up"},
-  DietaryWater:              {label:"Agua", unit:"L", kind:"sum", dec:1, good:"up"},
-  DietaryEnergyConsumed:     {label:"Energía consumida", unit:"kcal", kind:"sum", dec:0, good:null},
-  MindfulSession:            {label:"Atención plena", unit:"min", kind:"sum", dec:0, good:"up"},
-  NumberOfTimesFallen:       {label:"Caídas", unit:"", kind:"sum", dec:0, good:"down"},
-  SwimmingStrokeCount:       {label:"Brazadas", unit:"", kind:"sum", dec:0, good:null},
-  PhysicalEffort:            {label:"Esfuerzo físico", unit:"MET", kind:"avg", dec:1, good:null},
-  RunningSpeed:              {label:"Velocidad corriendo", unit:"km/h", kind:"avg", dec:1, good:"up"},
-  RunningPower:              {label:"Potencia corriendo", unit:"W", kind:"avg", dec:0, good:"up"},
-};
-const SUM_UNITS = ["count","km","mi","m","kcal","cal","min","l","ml","ft"];
-function prettyType(t){
-  return t.replace(/^HK(Quantity|Category|Data)TypeIdentifier/,"")
-          .replace(/([a-z])([A-Z])/g,"$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g,"$1 $2");
-}
-const WORKOUT_ES = {
-  Running:"Correr", Walking:"Caminar", Cycling:"Bicicleta", Swimming:"Natación",
-  FunctionalStrengthTraining:"Fuerza funcional", TraditionalStrengthTraining:"Fuerza (pesas)",
-  HighIntensityIntervalTraining:"HIIT", Yoga:"Yoga", Pilates:"Pilates", Elliptical:"Elíptica",
-  Rowing:"Remo", StairClimbing:"Escaleras", Hiking:"Senderismo", CoreTraining:"Core",
-  Dance:"Baile", MartialArts:"Artes marciales", Boxing:"Boxeo", Tennis:"Tenis", Padel:"Pádel",
-  Soccer:"Fútbol", Basketball:"Baloncesto", Golf:"Golf", CrossTraining:"Cross training",
-  MixedCardio:"Cardio mixto", Cooldown:"Vuelta a la calma", FlexibilityTraining:"Flexibilidad",
-  MindAndBody:"Mente y cuerpo", Other:"Otro", SkatingSports:"Patinaje",
-  DownhillSkiing:"Esquí", Snowboarding:"Snowboard", SurfingSports:"Surf", Climbing:"Escalada",
-  JumpRope:"Comba", Badminton:"Bádminton", TableTennis:"Tenis de mesa", Volleyball:"Vóley",
-  PreparationAndRecovery:"Recuperación", WheelchairWalkPace:"Silla (paseo)", WheelchairRunPace:"Silla (carrera)",
-};
-const workoutName = t => {
-  const k = t.replace("HKWorkoutActivityType","");
-  return WORKOUT_ES[k] || prettyType(k);
-};
-// Conversión de unidades a canónicas
-function normUnit(unit, value){
-  switch ((unit||"").toLowerCase()){
-    case "mi": return ["km", value*1.609344];
-    case "ft": return ["m", value*0.3048];
-    case "in": return ["cm", value*2.54];
-    case "lb": return ["kg", value*0.45359237];
-    case "cal": return ["kcal", value]; // Apple usa Cal = kcal
-    case "cm": return ["cm", value];
-    case "m/s": return ["m/s", value];
-    case "km/hr": case "km/h": return ["km/h", value];
-    case "mi/hr": return ["km/h", value*1.609344];
-    case "ml": return ["L", value/1000];
-    case "degf": return ["°C", (value-32)/1.8];
-    case "degc": return ["°C", value];
-    case "dbaspl": return ["dB", value];
-    case "count/min": return ["ppm", value];
-    case "ms": return ["ms", value];
-    default: return [unit, value];
-  }
-}
+<footer>
+  <div class="contenedor">
+    Herramienta personal de análisis. Tus datos de salud se procesan solo en este navegador; si activas «Borrar mis datos» no queda nada guardado. No es un producto sanitario ni sustituye el consejo médico.
+  </div>
+</footer>
 
-/* ============================================================
-   Estado global de datos
-   ============================================================ */
-const state = {
-  loaded:false, fileName:"", exportDate:"",
-  daily:new Map(),      // type -> Map(day -> acumulador)
-  meta:new Map(),       // type -> {unit, kind, count}
-  sleep:new Map(),      // day(mañana de despertar) -> Map(fuente -> {inBed,asleep,core,deep,rem,awake,unspecified,start,end,hasStages})
-  sleepNights:[],       // finalizado
-  workouts:[],
-  activitySummary:new Map(), // day -> {active, exercise, standHours}
-  minDay:null, maxDay:null,
-  range:"90", rangeStart:null, rangeEnd:null,
-};
-
-function accSum(type, day, source, value){
-  let m = state.daily.get(type); if (!m){ m = new Map(); state.daily.set(type, m); }
-  let d = m.get(day); if (!d){ d = {bySource:new Map()}; m.set(day, d); }
-  d.bySource.set(source, (d.bySource.get(source)||0) + value);
-}
-function accAvg(type, day, value){
-  let m = state.daily.get(type); if (!m){ m = new Map(); state.daily.set(type, m); }
-  let d = m.get(day); if (!d){ d = {sum:0, n:0, min:Infinity, max:-Infinity}; m.set(day, d); }
-  d.sum += value; d.n++;
-  if (value < d.min) d.min = value;
-  if (value > d.max) d.max = value;
-}
-function noteMeta(type, unit, kind){
-  let mt = state.meta.get(type);
-  if (!mt){ mt = {unit, kind, count:0}; state.meta.set(type, mt); }
-  mt.count++;
-  if (!mt.unit && unit) mt.unit = unit;
-}
-function metricKind(type, unit){
-  const reg = METRICS[type];
-  if (reg) return reg.kind;
-  const u = (unit||"").toLowerCase();
-  if (u === "%" || u.includes("/")) return "avg";
-  if (SUM_UNITS.includes(u)) return "sum";
-  return "avg";
-}
-
-/* ============================================================
-   Parser en streaming del export.xml
-   ============================================================ */
-const SLEEP_TYPE = "HKCategoryTypeIdentifierSleepAnalysis";
-const SLEEP_VALUES = {
-  "HKCategoryValueSleepAnalysisInBed":"inBed",
-  "HKCategoryValueSleepAnalysisAsleep":"unspecified",
-  "HKCategoryValueSleepAnalysisAsleepUnspecified":"unspecified",
-  "HKCategoryValueSleepAnalysisAsleepCore":"core",
-  "HKCategoryValueSleepAnalysisAsleepDeep":"deep",
-  "HKCategoryValueSleepAnalysisAsleepREM":"rem",
-  "HKCategoryValueSleepAnalysisAwake":"awake",
-};
-let currentWorkout = null;
-
-function handleRecord(tag){
-  const a = parseAttrs(tag);
-  const type = a.type;
-  if (!type) return;
-  const start = a.startDate || "", end = a.endDate || start;
-  const day = start.slice(0,10);
-  if (day.length !== 10) return;
-
-  if (type === SLEEP_TYPE){
-    const stage = SLEEP_VALUES[a.value];
-    if (!stage) return;
-    const t0 = parseAppleDate(start), t1 = parseAppleDate(end);
-    if (!(t1 > t0)) return;
-    const durMin = (t1 - t0) / 60000;
-    if (durMin > 24*60) return;
-    // La noche se asigna a la mañana en que termina el tramo
-    const night = end.slice(0,10);
-    const source = a.sourceName ? decodeXml(a.sourceName) : "?";
-    let nm = state.sleep.get(night); if (!nm){ nm = new Map(); state.sleep.set(night, nm); }
-    let s = nm.get(source);
-    if (!s){ s = {inBed:0, asleep:0, core:0, deep:0, rem:0, awake:0, unspecified:0, start:t0, end:t1, startStr:start, endStr:end, hasStages:false}; nm.set(source, s); }
-    s[stage] += durMin;
-    if (stage !== "inBed" && stage !== "awake") s.asleep += durMin;
-    if (stage === "core" || stage === "deep" || stage === "rem") s.hasStages = true;
-    if (t0 < s.start){ s.start = t0; s.startStr = start; }
-    if (t1 > s.end){ s.end = t1; s.endStr = end; }
-    trackDay(night);
-    return;
-  }
-
-  if (type === "HKCategoryTypeIdentifierMindfulSession"){
-    const t0 = parseAppleDate(start), t1 = parseAppleDate(end);
-    if (t1 > t0){
-      accSum("MindfulSession", day, a.sourceName||"?", (t1-t0)/60000);
-      noteMeta("MindfulSession", "min", "sum");
-      trackDay(day);
-    }
-    return;
-  }
-  if (type.startsWith("HKCategoryTypeIdentifier")) return; // otras categorías: fuera del ámbito
-
-  let value = parseFloat(a.value);
-  if (!isFinite(value)) return;
-  const short = type.replace("HKQuantityTypeIdentifier","").replace("HKDataType","");
-  const reg = METRICS[short];
-  let unit = a.unit || (reg ? reg.unit : "");
-  [unit, value] = normUnit(unit, value);
-  if (reg && reg.scale) value *= reg.scale;
-  const kind = metricKind(short, unit);
-  if (reg && reg.unit) unit = reg.unit;
-  if (kind === "sum"){
-    accSum(short, day, a.sourceName||"?", value);
-  } else {
-    accAvg(short, day, value);
-  }
-  noteMeta(short, unit, kind);
-  trackDay(day);
-}
-
-function handleWorkoutOpen(tag){
-  const a = parseAttrs(tag);
-  const t0 = parseAppleDate(a.startDate), t1 = parseAppleDate(a.endDate);
-  currentWorkout = {
-    type: a.workoutActivityType || "Other",
-    day: (a.startDate||"").slice(0,10),
-    startStr: a.startDate||"", start: t0, end: t1,
-    durationMin: a.duration ? parseFloat(a.duration) * (a.durationUnit==="s" ? 1/60 : a.durationUnit==="hr" ? 60 : 1)
-                            : (isFinite(t1-t0) ? (t1-t0)/60000 : 0),
-    kcal: a.totalEnergyBurned ? parseFloat(a.totalEnergyBurned) : null,
-    km: a.totalDistance ? (a.totalDistanceUnit==="mi" ? parseFloat(a.totalDistance)*1.609344 : parseFloat(a.totalDistance)) : null,
-    avgHR: null, source: a.sourceName ? decodeXml(a.sourceName) : "",
-  };
-}
-function handleWorkoutStat(tag){
-  if (!currentWorkout) return;
-  const a = parseAttrs(tag);
-  const t = a.type||"";
-  if (t.endsWith("ActiveEnergyBurned") && a.sum) currentWorkout.kcal = parseFloat(a.sum);
-  else if ((t.endsWith("DistanceWalkingRunning")||t.endsWith("DistanceCycling")||t.endsWith("DistanceSwimming")) && a.sum){
-    let v = parseFloat(a.sum);
-    if (a.unit === "mi") v *= 1.609344;
-    if (a.unit === "m" || t.endsWith("DistanceSwimming")) v = a.unit==="km" ? v : v/1000;
-    currentWorkout.km = v;
-  }
-  else if (t.endsWith("HeartRate") && a.average) currentWorkout.avgHR = parseFloat(a.average);
-}
-function handleWorkoutClose(){
-  if (currentWorkout && currentWorkout.day.length === 10 && currentWorkout.durationMin > 0.5){
-    state.workouts.push(currentWorkout);
-    trackDay(currentWorkout.day);
-  }
-  currentWorkout = null;
-}
-function handleActivitySummary(tag){
-  const a = parseAttrs(tag);
-  const day = a.dateComponents;
-  if (!day || day.length !== 10) return;
-  state.activitySummary.set(day, {
-    active: parseFloat(a.activeEnergyBurned)||0,
-    exercise: parseFloat(a.appleExerciseTime)||0,
-    standHours: parseFloat(a.appleStandHours)||0,
-    activeGoal: parseFloat(a.activeEnergyBurnedGoal)||null,
-  });
-  trackDay(day);
-}
-function trackDay(day){
-  if (!state.minDay || day < state.minDay) state.minDay = day;
-  if (!state.maxDay || day > state.maxDay) state.maxDay = day;
-}
-
-// Procesa una línea del XML
-function handleLine(line){
-  let i = 0;
-  while (i < line.length && (line[i]===" "||line[i]==="\t")) i++;
-  if (line[i] !== "<") return;
-  const c = line[i+1];
-  if (c === "R" && line.startsWith("<Record", i)) handleRecord(line);
-  else if (c === "W" && line.startsWith("<Workout ", i)){
-    handleWorkoutOpen(line);
-    if (line.trimEnd().endsWith("/>")) handleWorkoutClose();
-  }
-  else if (c === "W" && line.startsWith("<WorkoutStatistics", i)) handleWorkoutStat(line);
-  else if (c === "/" && line.startsWith("</Workout>", i)) handleWorkoutClose();
-  else if (c === "A" && line.startsWith("<ActivitySummary", i)) handleActivitySummary(line);
-  else if (c === "E" && line.startsWith("<ExportDate", i)){
-    const a = parseAttrs(line); state.exportDate = a.value || "";
-  }
-}
-
-async function parseStream(stream, totalBytes, onProgress){
-  const reader = stream.getReader();
-  const decoder = new TextDecoder("utf-8");
-  let carry = "", bytes = 0, lastUi = 0;
-  for(;;){
-    const {done, value} = await reader.read();
-    if (done) break;
-    bytes += value.byteLength;
-    const text = carry + decoder.decode(value, {stream:true});
-    let from = 0, nl;
-    while ((nl = text.indexOf("\n", from)) !== -1){
-      handleLine(text.slice(from, nl));
-      from = nl + 1;
-    }
-    carry = text.slice(from);
-    const now = performance.now();
-    if (now - lastUi > 120){
-      lastUi = now;
-      onProgress(totalBytes ? Math.min(bytes/totalBytes, 1) : null, bytes);
-      await new Promise(r => setTimeout(r, 0)); // deja respirar a la UI
-    }
-  }
-  carry += decoder.decode();
-  if (carry.trim()) carry.split("\n").forEach(handleLine);
-  onProgress(1, bytes);
-}
-</script>
-<script>
-"use strict";
-/* ============================================================
-   Consolidación tras el parseo
-   ============================================================ */
-function finalizeData(){
-  // Métricas diarias -> valor único por día
-  for (const [type, days] of state.daily){
-    const mt = state.meta.get(type);
-    for (const [day, d] of days){
-      if (d.bySource){
-        // acumulativas: cada fuente suma lo suyo; nos quedamos con la fuente mayor
-        // (evita contar iPhone + Watch dos veces)
-        let best = 0;
-        for (const v of d.bySource.values()) if (v > best) best = v;
-        days.set(day, {v: best});
-      } else {
-        days.set(day, {v: d.sum/d.n, min: d.min, max: d.max, n: d.n});
-      }
-    }
-  }
-  // Sueño: elegir por noche la mejor fuente (con fases > más horas)
-  state.sleepNights = [];
-  for (const [night, sources] of state.sleep){
-    let best = null, maxInBed = 0;
-    for (const s of sources.values()){
-      if (s.inBed > maxInBed) maxInBed = s.inBed;
-      if (!best) { best = s; continue; }
-      if (s.hasStages !== best.hasStages){ if (s.hasStages) best = s; continue; }
-      if (s.asleep > best.asleep) best = s;
-    }
-    if (!best || best.asleep < 20) continue;
-    const startLocal = best.startStr; // hora local del registro
-    const bedH = +startLocal.slice(11,13) + (+startLocal.slice(14,16))/60;
-    const wakeH = +best.endStr.slice(11,13) + (+best.endStr.slice(14,16))/60;
-    state.sleepNights.push({
-      night, asleep: best.asleep,
-      core: best.core, deep: best.deep, rem: best.rem, awake: best.awake,
-      unspecified: best.unspecified, inBed: Math.max(maxInBed, best.asleep + best.awake),
-      bedHour: bedH < 12 ? bedH + 24 : bedH, // 22:30 -> 22.5 ; 00:45 -> 24.75
-      wakeHour: wakeH, hasStages: best.hasStages,
-    });
-  }
-  state.sleepNights.sort((a,b)=> a.night < b.night ? -1 : 1);
-  state.workouts.sort((a,b)=> a.start - b.start);
-  state.loaded = true;
-}
-
-/* ============================================================
-   Series y estadística
-   ============================================================ */
-function listDays(start, end){
-  const out = [];
-  for (let k = start; k <= end; k = addDays(k,1)) out.push(k);
-  return out;
-}
-// serie [{day, v}] de una métrica dentro del rango (días sin dato: se omiten)
-function seriesOf(type, start, end){
-  const m = state.daily.get(type);
-  if (!m) return [];
-  const out = [];
-  for (const [day, d] of m){
-    if (day >= start && day <= end && d.v != null && isFinite(d.v)) out.push({day, v:d.v});
-  }
-  out.sort((a,b)=> a.day < b.day ? -1 : 1);
-  return out;
-}
-function movingAvg(series, win=7){
-  const out = []; let sum = 0; const q = [];
-  for (const p of series){
-    q.push(p.v); sum += p.v;
-    if (q.length > win) sum -= q.shift();
-    out.push({day:p.day, v: sum/q.length});
-  }
-  return out;
-}
-function mean(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
-function median(arr){
-  if (!arr.length) return null;
-  const s = [...arr].sort((a,b)=>a-b), m = s.length>>1;
-  return s.length%2 ? s[m] : (s[m-1]+s[m])/2;
-}
-function stddev(arr){
-  if (arr.length < 2) return null;
-  const m = mean(arr);
-  return Math.sqrt(arr.reduce((a,v)=>a+(v-m)*(v-m),0)/(arr.length-1));
-}
-// pendiente por regresión lineal, en unidades/día
-function linReg(series){
-  const n = series.length;
-  if (n < 5) return null;
-  const x0 = dayToMs(series[0].day);
-  let sx=0, sy=0, sxx=0, sxy=0;
-  for (const p of series){
-    const x = (dayToMs(p.day)-x0)/86400000;
-    sx += x; sy += p.v; sxx += x*x; sxy += x*p.v;
-  }
-  const denom = n*sxx - sx*sx;
-  if (!denom) return null;
-  const slope = (n*sxy - sx*sy)/denom;
-  return {slope, intercept:(sy - slope*sx)/n, days:(dayToMs(series[n-1].day)-x0)/86400000};
-}
-// compara la media de los últimos `win` días con los `win` anteriores
-function periodDelta(type, endDay, win=28){
-  const recent = seriesOf(type, addDays(endDay, -win+1), endDay);
-  const prior  = seriesOf(type, addDays(endDay, -2*win+1), addDays(endDay, -win));
-  if (recent.length < Math.max(3, win/6) || prior.length < Math.max(3, win/6)) return null;
-  const a = mean(recent.map(p=>p.v)), b = mean(prior.map(p=>p.v));
-  if (b == null || Math.abs(b) < 1e-9) return null;
-  return {recent:a, prior:b, pct:(a-b)/Math.abs(b)*100};
-}
-function metricInfo(type){
-  const reg = METRICS[type];
-  const mt = state.meta.get(type) || {};
-  return {
-    label: reg ? reg.label : prettyType(type),
-    unit: reg ? reg.unit : (mt.unit || ""),
-    dec: reg ? reg.dec : 1,
-    kind: reg ? reg.kind : (mt.kind || "avg"),
-    good: reg ? reg.good : null,
-  };
-}
-function sleepInRange(start, end){
-  return state.sleepNights.filter(n => n.night >= start && n.night <= end);
-}
-function workoutsInRange(start, end){
-  return state.workouts.filter(w => w.day >= start && w.day <= end);
-}
-// agrupa una serie diaria por semanas (lunes) — para rangos largos
-function weeklyBuckets(series, agg="sum"){
-  const map = new Map();
-  for (const p of series){
-    const wk = addDays(p.day, -weekday(p.day));
-    let b = map.get(wk); if (!b){ b = {sum:0, n:0}; map.set(wk, b); }
-    b.sum += p.v; b.n++;
-  }
-  return [...map.entries()].sort((a,b)=> a[0]<b[0]?-1:1)
-    .map(([day,b]) => ({day, v: agg==="sum" ? b.sum : b.sum/b.n}));
-}
-</script>
-<script>
-"use strict";
-/* ============================================================
-   Gráficas SVG propias
-   ============================================================ */
-const SVGNS = "http://www.w3.org/2000/svg";
-function svgEl(name, attrs){
-  const el = document.createElementNS(SVGNS, name);
-  for (const k in attrs) el.setAttribute(k, attrs[k]);
-  return el;
-}
-function niceTicks(min, max, n=4){
-  if (min === max){ max = min + 1; }
-  const span = max - min;
-  const step0 = span / n;
-  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
-  let step = mag;
-  for (const m of [1,2,2.5,5,10]) if (mag*m >= step0){ step = mag*m; break; }
-  const lo = Math.floor(min/step)*step, hi = Math.ceil(max/step)*step;
-  const out = [];
-  for (let v = lo; v <= hi + step/2; v += step) out.push(+v.toFixed(10));
-  return out;
-}
-function xLabels(days){
-  // etiquetas de eje X según densidad: días -> semanas -> meses
-  const n = days.length, out = [];
-  if (!n) return out;
-  if (n <= 14){
-    days.forEach((d,i)=> out.push([i, `${+d.slice(8,10)} ${MESES[+d.slice(5,7)-1]}`]));
-  } else if (n <= 92){
-    let lastM = "";
-    days.forEach((d,i)=>{
-      if (+d.slice(8,10) === 1 || i === 0 || (weekday(d)===0 && n<=35)){
-        const lbl = `${+d.slice(8,10)} ${MESES[+d.slice(5,7)-1]}`;
-        if (d.slice(0,7) !== lastM || n <= 35){ out.push([i,lbl]); lastM = d.slice(0,7); }
-      }
-    });
-  } else {
-    let lastM = "";
-    days.forEach((d,i)=>{
-      const m = d.slice(0,7);
-      if (m !== lastM){
-        lastM = m;
-        const showYear = d.slice(5,7)==="01" || out.length===0;
-        out.push([i, MESES[+d.slice(5,7)-1] + (showYear ? " "+d.slice(2,4) : "")]);
-      }
-    });
-    if (out.length > 13){ const k = Math.ceil(out.length/13); return out.filter((_,i)=> i%k===0); }
-  }
-  return out;
-}
-function makeTooltip(box){
-  const tt = document.createElement("div");
-  tt.className = "tooltip";
-  box.appendChild(tt);
-  return tt;
-}
-function showTooltip(tt, box, px, py, dateLabel, rows){
-  tt.textContent = "";
-  const d = document.createElement("div"); d.className = "tt-date"; d.textContent = dateLabel;
-  tt.appendChild(d);
-  for (const r of rows){
-    const row = document.createElement("div"); row.className = "tt-row";
-    const k = document.createElement("span"); k.className = "k"; k.style.background = r.color;
-    const v = document.createElement("span"); v.className = "v"; v.textContent = r.value;
-    const n = document.createElement("span"); n.className = "n"; n.textContent = r.name;
-    row.append(k, v, n); tt.appendChild(row);
-  }
-  tt.style.display = "block";
-  const bw = box.clientWidth, tw = tt.offsetWidth;
-  let x = px + 14;
-  if (x + tw > bw - 4) x = px - tw - 14;
-  tt.style.left = Math.max(2, x) + "px";
-  tt.style.top = Math.max(0, Math.min(py - 20, box.clientHeight - tt.offsetHeight - 4)) + "px";
-}
-const hideTooltip = tt => { tt.style.display = "none"; };
-
-const CW = 660, CH = 235, PAD = {t:14, r:14, b:26, l:46};
-function chartFrame(svg, ticks, fmt){
-  const x0 = PAD.l, x1 = CW - PAD.r, y0 = CH - PAD.b, y1 = PAD.t;
-  const g = svgEl("g", {});
-  for (const t of ticks){
-    const y = t.y;
-    g.appendChild(svgEl("line", {x1:x0, x2:x1, y1:y, y2:y, stroke:"var(--grid)", "stroke-width":1}));
-    const lbl = svgEl("text", {x:x0-8, y:y+3.5, "text-anchor":"end", fill:"var(--muted)",
-      "font-size":"10.5", style:"font-variant-numeric:tabular-nums"});
-    lbl.textContent = fmt(t.v);
-    g.appendChild(lbl);
-  }
-  g.appendChild(svgEl("line", {x1:x0, x2:x1, y1:y0, y2:y0, stroke:"var(--axis)", "stroke-width":1}));
-  svg.appendChild(g);
-  return {x0, x1, y0, y1};
-}
-function xAxis(svg, days, xOf){
-  for (const [i, lbl] of xLabels(days)){
-    const t = svgEl("text", {x:xOf(i), y:CH-8, "text-anchor":"middle", fill:"var(--muted)",
-      "font-size":"10.5", style:"font-variant-numeric:tabular-nums"});
-    t.textContent = lbl;
-    svg.appendChild(t);
-  }
-}
-function yScale(vmin, vmax, zero){
-  if (zero && vmin > 0) vmin = 0;
-  if (vmin === vmax){ vmax = vmin + 1; vmin = Math.max(0, vmin - 1); }
-  const ticks = niceTicks(vmin, vmax, 4);
-  vmin = ticks[0]; vmax = ticks[ticks.length-1];
-  const y0 = CH - PAD.b, y1 = PAD.t;
-  const yOf = v => y0 - (v - vmin)/(vmax - vmin)*(y0 - y1);
-  return {yOf, ticks: ticks.map(v => ({v, y:yOf(v)}))};
-}
-
-/* Línea diaria + media 7 días con crosshair */
-function lineChart(box, series, opts){
-  const {unit="", dec=0, color="var(--s1)", zero=false, ma=true, fmtV} = opts||{};
-  box.textContent = "";
-  if (series.length < 2){ box.appendChild(emptyNote()); return; }
-  const svg = svgEl("svg", {viewBox:`0 0 ${CW} ${CH}`, class:"chart", role:"img",
-    "aria-label": opts.aria || "Gráfica de línea"});
-  const days = series.map(p=>p.day);
-  const vals = series.map(p=>p.v);
-  const {yOf, ticks} = yScale(Math.min(...vals), Math.max(...vals), zero);
-  const fmt = fmtV || (v => fmtCompact(v));
-  const {x0, x1, y0} = chartFrame(svg, ticks, fmt);
-  const xOf = i => days.length===1 ? (x0+x1)/2 : x0 + i/(days.length-1)*(x1-x0);
-  // área + línea diaria
-  let dPath = "", aPath = `M ${xOf(0)} ${y0} `;
-  series.forEach((p,i)=>{
-    dPath += (i? "L":"M") + ` ${xOf(i).toFixed(1)} ${yOf(p.v).toFixed(1)} `;
-    aPath += `L ${xOf(i).toFixed(1)} ${yOf(p.v).toFixed(1)} `;
-  });
-  aPath += `L ${xOf(days.length-1)} ${y0} Z`;
-  svg.appendChild(svgEl("path", {d:aPath, fill:color, opacity:.09}));
-  const maSeries = ma && series.length >= 10 ? movingAvg(series, 7) : null;
-  svg.appendChild(svgEl("path", {d:dPath, fill:"none", stroke:color, "stroke-width": maSeries?1.2:2,
-    opacity: maSeries?.45:1, "stroke-linejoin":"round", "stroke-linecap":"round"}));
-  if (maSeries){
-    let mPath = "";
-    maSeries.forEach((p,i)=>{ mPath += (i? "L":"M") + ` ${xOf(i).toFixed(1)} ${yOf(p.v).toFixed(1)} `; });
-    svg.appendChild(svgEl("path", {d:mPath, fill:"none", stroke:color, "stroke-width":2.2,
-      "stroke-linejoin":"round", "stroke-linecap":"round"}));
-  }
-  // punto final + etiqueta directa
-  const last = series[series.length-1];
-  const ex = xOf(series.length-1), ey = yOf(last.v);
-  svg.appendChild(svgEl("circle", {cx:ex, cy:ey, r:4.5, fill:color, stroke:"var(--surface)", "stroke-width":2}));
-  const fv = v => fmtV ? fmtV(v) : fmtNum(v, dec) + (unit? " "+unit : "");
-  const endLbl = svgEl("text", {x:Math.min(ex, x1-4), y:Math.max(ey-9, 11), "text-anchor":"end",
-    fill:"var(--ink)", "font-size":"11", "font-weight":"600"});
-  endLbl.textContent = fv(last.v);
-  svg.appendChild(endLbl);
-  xAxis(svg, days, xOf);
-  // crosshair + tooltip
-  const cross = svgEl("line", {y1:PAD.t, y2:y0, stroke:"var(--axis)", "stroke-width":1, visibility:"hidden"});
-  svg.appendChild(cross);
-  const hover = svgEl("circle", {r:5, fill:color, stroke:"var(--surface)", "stroke-width":2, visibility:"hidden"});
-  svg.appendChild(hover);
-  box.appendChild(svg);
-  const tt = makeTooltip(box);
-  const onMove = ev => {
-    const r = svg.getBoundingClientRect();
-    const mx = (ev.clientX - r.left) / r.width * CW;
-    const i = Math.round((mx - x0)/(x1-x0)*(days.length-1));
-    if (i < 0 || i >= days.length){ hideTooltip(tt); cross.setAttribute("visibility","hidden"); hover.setAttribute("visibility","hidden"); return; }
-    const px = xOf(i), py = yOf(series[i].v);
-    cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility","visible");
-    hover.setAttribute("cx", px); hover.setAttribute("cy", py); hover.setAttribute("visibility","visible");
-    const rows = [{color, value: fv(series[i].v), name: opts.seriesName || ""}];
-    if (maSeries) rows.push({color:"var(--axis)", value: fv(maSeries[i].v), name:"media 7 días"});
-    showTooltip(tt, box, px/CW*box.clientWidth, py/CH*svg.getBoundingClientRect().height, fmtDay(days[i]), rows);
-  };
-  svg.addEventListener("pointermove", onMove);
-  svg.addEventListener("pointerleave", ()=>{ hideTooltip(tt); cross.setAttribute("visibility","hidden"); hover.setAttribute("visibility","hidden"); });
-}
-
-/* Barras (diarias o semanales) */
-function barChart(box, series, opts){
-  const {unit="", dec=0, color="var(--s1)", fmtV, fmtName} = opts||{};
-  box.textContent = "";
-  if (!series.length){ box.appendChild(emptyNote()); return; }
-  const svg = svgEl("svg", {viewBox:`0 0 ${CW} ${CH}`, class:"chart", role:"img",
-    "aria-label": opts.aria || "Gráfica de barras"});
-  const days = series.map(p=>p.day);
-  const vals = series.map(p=>p.v);
-  const {yOf, ticks} = yScale(0, Math.max(...vals, 1), true);
-  const {x0, x1, y0} = chartFrame(svg, ticks, fmtV || fmtCompact);
-  const n = days.length;
-  const slot = (x1-x0)/n;
-  const bw = Math.min(24, Math.max(2, slot - 2));
-  const xOf = i => x0 + slot*i + slot/2;
-  const bars = svgEl("g", {});
-  series.forEach((p,i)=>{
-    const y = yOf(p.v);
-    const h = Math.max(0, y0 - y);
-    const rx = Math.min(4, bw/2);
-    const bx = xOf(i) - bw/2;
-    const d = h <= rx
-      ? `M ${bx} ${y0} L ${bx} ${y} L ${bx+bw} ${y} L ${bx+bw} ${y0} Z`
-      : `M ${bx} ${y0} L ${bx} ${y+rx} Q ${bx} ${y} ${bx+rx} ${y} L ${bx+bw-rx} ${y} Q ${bx+bw} ${y} ${bx+bw} ${y+rx} L ${bx+bw} ${y0} Z`;
-    const bar = svgEl("path", {d, fill:color});
-    bar.dataset.i = i;
-    bars.appendChild(bar);
-  });
-  svg.appendChild(bars);
-  if (opts && opts.catLabels){
-    opts.catLabels.forEach((lbl,i)=>{
-      const t = svgEl("text", {x:xOf(i), y:CH-8, "text-anchor":"middle", fill:"var(--muted)", "font-size":"10.5"});
-      t.textContent = lbl; svg.appendChild(t);
-    });
-  } else {
-    xAxis(svg, days, xOf);
-  }
-  box.appendChild(svg);
-  const tt = makeTooltip(box);
-  const nameOf = fmtName || fmtDay;
-  svg.addEventListener("pointermove", ev => {
-    const r = svg.getBoundingClientRect();
-    const mx = (ev.clientX - r.left) / r.width * CW;
-    const i = Math.floor((mx - x0)/slot);
-    [...bars.children].forEach((b,j)=> b.setAttribute("opacity", j===i ? .8 : 1));
-    if (i < 0 || i >= n){ hideTooltip(tt); return; }
-    showTooltip(tt, box, xOf(i)/CW*box.clientWidth, yOf(series[i].v)/CH*r.height,
-      nameOf(days[i]), [{color, value: fmtNum(series[i].v, dec) + (unit? " "+unit:""), name: opts.seriesName||""}]);
-  });
-  svg.addEventListener("pointerleave", ()=>{ hideTooltip(tt); [...bars.children].forEach(b=> b.setAttribute("opacity",1)); });
-}
-
-/* Barras apiladas (fases de sueño) */
-function stackedBars(box, items, stages, opts){
-  // items: [{day, parts:{k:v}}] ; stages: [{key,label,color}] (orden de apilado, abajo→arriba)
-  const {unit="h", fmtV = v=>fmtNum(v,1)} = opts||{};
-  box.textContent = "";
-  if (!items.length){ box.appendChild(emptyNote()); return; }
-  const svg = svgEl("svg", {viewBox:`0 0 ${CW} ${CH}`, class:"chart", role:"img", "aria-label": opts.aria || "Barras apiladas"});
-  const days = items.map(p=>p.day);
-  const totals = items.map(p => stages.reduce((a,s)=> a + (p.parts[s.key]||0), 0));
-  const {yOf, ticks} = yScale(0, Math.max(...totals, 1), true);
-  const {x0, x1, y0} = chartFrame(svg, ticks, fmtV);
-  const n = days.length, slot = (x1-x0)/n;
-  const bw = Math.min(24, Math.max(2, slot - 2));
-  const xOf = i => x0 + slot*i + slot/2;
-  const g = svgEl("g", {});
-  items.forEach((p,i)=>{
-    let acc = 0;
-    const bx = xOf(i) - bw/2;
-    stages.forEach(s=>{
-      const v = p.parts[s.key]||0;
-      if (v <= 0) return;
-      const yTop = yOf(acc+v), yBot = yOf(acc);
-      const h = Math.max(0.5, yBot - yTop - (acc>0 ? 2 : 0)); // hueco de 2px entre segmentos
-      g.appendChild(svgEl("rect", {x:bx, y:yBot - h - (acc>0?2:0) + (acc>0?0:0), width:bw, height:h,
-        fill:`var(${s.color})`, rx: 1.5}));
-      acc += v;
-    });
-  });
-  svg.appendChild(g);
-  xAxis(svg, days, xOf);
-  box.appendChild(svg);
-  const tt = makeTooltip(box);
-  svg.addEventListener("pointermove", ev => {
-    const r = svg.getBoundingClientRect();
-    const mx = (ev.clientX - r.left) / r.width * CW;
-    const i = Math.floor((mx - x0)/slot);
-    if (i < 0 || i >= n){ hideTooltip(tt); return; }
-    const rows = [...stages].reverse().filter(s => (items[i].parts[s.key]||0) > 0)
-      .map(s => ({color:getComputedStyle(document.documentElement).getPropertyValue(s.color) || "#888",
-        value: fmtV(items[i].parts[s.key]) + " " + unit, name: s.label}));
-    rows.push({color:"transparent", value: fmtV(totals[i]) + " " + unit, name:"total"});
-    showTooltip(tt, box, xOf(i)/CW*box.clientWidth, yOf(totals[i])/CH*r.height, fmtDay(days[i]), rows);
-  });
-  svg.addEventListener("pointerleave", ()=> hideTooltip(tt));
-}
-
-function sparkline(series, color="var(--s1)"){
-  const w = 120, h = 34;
-  const svg = svgEl("svg", {viewBox:`0 0 ${w} ${h}`, class:"spark", "aria-hidden":"true"});
-  if (series.length >= 2){
-    const vals = series.map(p=>p.v);
-    const vmin = Math.min(...vals), vmax = Math.max(...vals);
-    const yOf = v => vmax===vmin ? h/2 : 3 + (h-8)*(1 - (v-vmin)/(vmax-vmin));
-    const xOf = i => 1 + i/(series.length-1)*(w-6);
-    let d = "", a = `M ${xOf(0)} ${h-1} `;
-    series.forEach((p,i)=>{ d += (i?"L":"M")+` ${xOf(i).toFixed(1)} ${yOf(p.v).toFixed(1)} `; a += `L ${xOf(i).toFixed(1)} ${yOf(p.v).toFixed(1)} `; });
-    a += `L ${xOf(series.length-1)} ${h-1} Z`;
-    svg.appendChild(svgEl("path", {d:a, fill:color, opacity:.10}));
-    svg.appendChild(svgEl("path", {d, fill:"none", stroke:color, "stroke-width":1.6, "stroke-linejoin":"round"}));
-    const lp = series[series.length-1];
-    svg.appendChild(svgEl("circle", {cx:xOf(series.length-1), cy:yOf(lp.v), r:2.8, fill:color,
-      stroke:"var(--surface)", "stroke-width":1.5}));
-  }
-  return svg;
-}
-function emptyNote(msg){
-  const d = document.createElement("div");
-  d.className = "empty-note";
-  d.textContent = msg || "Sin datos en este rango.";
-  return d;
-}
-/* Tarjeta de gráfica con vista de tabla accesible */
-function chartCard(title, sub, unit, renderFn, tableRows, opts){
-  const card = document.createElement("div");
-  card.className = "card" + ((opts&&opts.full) ? " full" : "");
-  const head = document.createElement("div"); head.className = "card-head";
-  const h = document.createElement("h3"); h.textContent = title;
-  const right = document.createElement("div"); right.style.display="flex"; right.style.gap="8px"; right.style.alignItems="center";
-  if (unit){ const u = document.createElement("span"); u.className="unit"; u.textContent = unit; right.appendChild(u); }
-  const tbtn = document.createElement("button"); tbtn.className = "ghost table-toggle"; tbtn.textContent = "Tabla";
-  tbtn.setAttribute("aria-pressed","false");
-  right.appendChild(tbtn);
-  head.append(h, right); card.appendChild(head);
-  if (sub){ const s = document.createElement("p"); s.className="card-sub"; s.textContent = sub; card.appendChild(s); }
-  if (opts && opts.legend){
-    const lg = document.createElement("div"); lg.className = "legend";
-    for (const it of opts.legend){
-      const k = document.createElement("span"); k.className = "key";
-      const sw = document.createElement("span"); sw.className = it.line ? "linekey" : "swatch";
-      sw.style.background = it.color.startsWith("--") ? `var(${it.color})` : it.color;
-      const txt = document.createTextNode(it.label);
-      k.append(sw, txt); lg.appendChild(k);
-    }
-    card.appendChild(lg);
-  }
-  const box = document.createElement("div"); box.className = "chart-box";
-  card.appendChild(box);
-  const tableWrap = document.createElement("div"); tableWrap.className = "data-table";
-  card.appendChild(tableWrap);
-  renderFn(box);
-  tbtn.addEventListener("click", ()=>{
-    const open = tableWrap.style.display === "block";
-    if (!open && !tableWrap.firstChild && tableRows){
-      const {head:th, rows} = tableRows();
-      const tbl = document.createElement("table");
-      const trh = document.createElement("tr");
-      th.forEach(c=>{ const el = document.createElement("th"); el.textContent = c; trh.appendChild(el); });
-      const thead = document.createElement("thead"); thead.appendChild(trh); tbl.appendChild(thead);
-      const tbody = document.createElement("tbody");
-      rows.forEach(r=>{
-        const tr = document.createElement("tr");
-        r.forEach(c=>{ const td = document.createElement("td"); td.textContent = c; tr.appendChild(td); });
-        tbody.appendChild(tr);
-      });
-      tbl.appendChild(tbody); tableWrap.appendChild(tbl);
-    }
-    tableWrap.style.display = open ? "none" : "block";
-    tbtn.setAttribute("aria-pressed", String(!open));
-    tbtn.textContent = open ? "Tabla" : "Gráfica";
-  });
-  return card;
-}
-</script>
-<script>
-"use strict";
-/* ============================================================
-   Tiles, insights y secciones
-   ============================================================ */
-function statTile(label, valueText, unitText, opts){
-  const {delta, good, spark, sparkColor, note} = opts||{};
-  const t = document.createElement("div"); t.className = "tile";
-  const l = document.createElement("div"); l.className = "label"; l.textContent = label;
-  const v = document.createElement("div"); v.className = "value"; v.textContent = valueText;
-  if (unitText){ const u = document.createElement("small"); u.textContent = unitText; v.appendChild(u); }
-  t.append(l, v);
-  if (delta != null && isFinite(delta)){
-    const d = document.createElement("div");
-    const up = delta >= 0;
-    let cls = "delta";
-    if (Math.abs(delta) >= 2 && good){
-      const isGood = (up && good==="up") || (!up && good==="down");
-      cls += up ? (isGood ? " up-good" : " up-bad") : (isGood ? " down-good" : " down-bad");
-    }
-    d.className = cls;
-    d.textContent = `${up?"▲":"▼"} ${fmtNum(Math.abs(delta),1)} % vs 4 semanas previas`;
-    t.appendChild(d);
-  } else if (note){
-    const d = document.createElement("div"); d.className = "delta"; d.textContent = note; t.appendChild(d);
-  }
-  if (spark && spark.length >= 2) t.appendChild(sparkline(spark, sparkColor || "var(--s1)"));
-  return t;
-}
-function metricTile(type, opts){
-  const {start, end} = currentRange();
-  const info = metricInfo(type);
-  const s = seriesOf(type, start, end);
-  if (!s.length) return null;
-  const agg = info.kind === "sum"
-    ? mean(s.map(p=>p.v))
-    : mean(s.map(p=>p.v));
-  const d = periodDelta(type, end);
-  const valTxt = (opts && opts.fmt) ? opts.fmt(agg) : fmtNum(agg, info.dec);
-  return statTile((opts&&opts.label)||info.label + (info.kind==="sum" ? " / día" : ""),
-    valTxt, (opts&&opts.unit!==undefined)?opts.unit:info.unit, {
-    delta: d ? d.pct : null, good: info.good,
-    spark: movingAvg(s, Math.max(1, Math.round(s.length/40))).filter((_,i,arr)=> i % Math.max(1, Math.floor(arr.length/60)) === 0),
-    sparkColor: (opts&&opts.color)||"var(--s1)",
-  });
-}
-function sectionTitle(parent, title, sub){
-  const h = document.createElement("h2"); h.className = "section-title"; h.textContent = title;
-  parent.appendChild(h);
-  if (sub){ const p = document.createElement("p"); p.className = "section-sub"; p.textContent = sub; parent.appendChild(p); }
-}
-function seriesTable(series, info){
-  return () => ({
-    head: ["Fecha", info.label + (info.unit? ` (${info.unit})` : "")],
-    rows: [...series].reverse().map(p => [fmtDay(p.day), fmtNum(p.v, info.dec)]),
-  });
-}
-function metricLineCard(type, opts){
-  const {start, end} = currentRange();
-  const info = metricInfo(type);
-  let s = seriesOf(type, start, end);
-  if (!s.length) return null;
-  const o = opts||{};
-  return chartCard(o.title || info.label, o.sub || null, info.unit, box => {
-    lineChart(box, s, {unit:info.unit, dec:info.dec, color:o.color||"var(--s1)", zero:o.zero,
-      seriesName:info.label, aria:`Evolución de ${info.label}`});
-  }, seriesTable(s, info), o);
-}
-function metricBarCard(type, opts){
-  const {start, end} = currentRange();
-  const info = metricInfo(type);
-  let s = seriesOf(type, start, end);
-  if (!s.length) return null;
-  const o = opts||{};
-  let sub = o.sub, fmtName;
-  const nDays = (dayToMs(end)-dayToMs(start))/86400000;
-  if (nDays > 120){
-    s = weeklyBuckets(s, info.kind === "sum" ? "sum" : "avg");
-    sub = (sub? sub+" · " : "") + (info.kind==="sum" ? "total semanal" : "media semanal");
-    fmtName = d => "Semana del " + fmtDay(d);
-  }
-  return chartCard(o.title || info.label, sub, info.unit, box => {
-    barChart(box, s, {unit:info.unit, dec:info.dec, color:o.color||"var(--s1)",
-      seriesName:info.label, fmtName, aria:`Barras de ${info.label}`});
-  }, seriesTable(s, info), o);
-}
-
-/* ---------- insights / tendencias ---------- */
-function collectInsights(){
-  const {start, end} = currentRange();
-  const out = [];
-  const push = (status, html, detail) => out.push({status, html, detail});
-  const KEY = ["StepCount","ActiveEnergyBurned","AppleExerciseTime","RestingHeartRate",
-    "HeartRateVariabilitySDNN","VO2Max","BodyMass","OxygenSaturation","RespiratoryRate",
-    "DistanceWalkingRunning","TimeInDaylight"];
-  for (const type of KEY){
-    const info = metricInfo(type);
-    const d = periodDelta(type, end);
-    if (!d || Math.abs(d.pct) < 3) continue;
-    const up = d.pct > 0;
-    let status = "neutral";
-    if (info.good) status = (up && info.good==="up") || (!up && info.good==="down") ? "good" : "bad";
-    if (type === "BodyMass" && Math.abs(d.pct) < 1.5) continue;
-    push(status,
-      `<b>${info.label}</b> ${up ? "sube" : "baja"} un <b>${fmtNum(Math.abs(d.pct),1)} %</b>: media de ${fmtNum(d.recent, info.dec)} ${info.unit} en las últimas 4 semanas frente a ${fmtNum(d.prior, info.dec)} ${info.unit} en las 4 anteriores.`);
-  }
-  // Sueño
-  const nights = sleepInRange(addDays(end,-27), end);
-  const prevNights = sleepInRange(addDays(end,-55), addDays(end,-28));
-  if (nights.length >= 5){
-    const m = mean(nights.map(n=>n.asleep));
-    if (prevNights.length >= 5){
-      const p = mean(prevNights.map(n=>n.asleep));
-      const pct = (m-p)/p*100;
-      if (Math.abs(pct) >= 3){
-        const towardsGood = (m > p && m < 8.6*60) || (m < p && p > 8.8*60);
-        push(towardsGood ? "good" : (m < 6.5*60 ? "bad" : "neutral"),
-          `Duermes de media <b>${fmtDur(m)}</b> por noche últimamente, ${pct>0?"más":"menos"} que las semanas anteriores (${fmtDur(p)}).`);
-      }
-    }
-    if (m < 6.5*60) push("bad", `Tu media de sueño reciente es <b>${fmtDur(m)}</b>, por debajo de las 7 h recomendadas.`);
-    else if (m >= 7*60 && m <= 9*60) push("good", `Tu media de sueño reciente es <b>${fmtDur(m)}</b>, dentro del rango recomendado de 7–9 h.`);
-    const beds = nights.map(n=>n.bedHour);
-    const sd = stddev(beds);
-    if (sd != null){
-      if (sd*60 <= 35) push("good", `Horario de sueño consistente: tu hora de acostarte varía solo <b>±${Math.round(sd*60)} min</b>.`);
-      else if (sd*60 >= 75) push("bad", `Horario de sueño irregular: tu hora de acostarte varía <b>±${Math.round(sd*60)} min</b> de una noche a otra.`);
-    }
-    const withStages = nights.filter(n=>n.hasStages);
-    if (withStages.length >= 5){
-      const deepPct = mean(withStages.map(n=> n.deep/(n.asleep||1)))*100;
-      if (deepPct < 10) push("neutral", `El sueño profundo supone un <b>${fmtNum(deepPct,0)} %</b> de tus noches (lo típico ronda el 13–23 %).`);
-    }
-  }
-  // Entrenamientos
-  const w4 = workoutsInRange(addDays(end,-27), end);
-  const wPrev = workoutsInRange(addDays(end,-55), addDays(end,-28));
-  if (w4.length || wPrev.length){
-    const perWeek = w4.length/4, prevWeek = wPrev.length/4;
-    if (w4.length && wPrev.length && Math.abs(perWeek - prevWeek) >= 0.7){
-      push(perWeek > prevWeek ? "good" : "bad",
-        `Entrenas <b>${fmtNum(perWeek,1)} veces/semana</b> últimamente, ${perWeek>prevWeek?"más":"menos"} que antes (${fmtNum(prevWeek,1)}/semana).`);
-    } else if (!w4.length && wPrev.length){
-      push("bad", `Sin entrenamientos registrados en las últimas 4 semanas (antes hacías ${fmtNum(prevWeek,1)}/semana).`);
-    }
-  }
-  // Día de más pasos
-  const steps = seriesOf("StepCount", start, end);
-  if (steps.length >= 14){
-    const byWd = Array.from({length:7}, ()=>[]);
-    steps.forEach(p => byWd[weekday(p.day)].push(p.v));
-    const means = byWd.map(a => mean(a)).map(v=>v==null?0:v);
-    const hi = means.indexOf(Math.max(...means)), lo = means.indexOf(Math.min(...means.filter(v=>v>0)));
-    if (means[hi] > 0 && means[hi] > means[lo]*1.25){
-      push("neutral", `Tu día más activo es el <b>${DIAS[hi]}</b> (${fmtCompact(means[hi])} pasos de media) y el más tranquilo el <b>${DIAS[lo]}</b> (${fmtCompact(means[lo])}).`);
-    }
-    const best = steps.reduce((a,p)=> p.v>a.v?p:a);
-    push("neutral", `Récord de pasos del periodo: <b>${fmtNum(best.v)}</b> el ${fmtDay(best.day)}.`);
-  }
-  return out;
-}
-function renderInsightList(parent, insights, max){
-  const list = document.createElement("div"); list.className = "insight-list";
-  const items = max ? insights.slice(0, max) : insights;
-  if (!items.length){ parent.appendChild(emptyNote("Aún no hay suficientes datos para detectar tendencias en este rango.")); return; }
-  for (const it of items){
-    const el = document.createElement("div"); el.className = "insight";
-    const b = document.createElement("div"); b.className = "badge " + it.status;
-    b.textContent = it.status === "good" ? "✓" : it.status === "bad" ? "!" : "•";
-    const p = document.createElement("p"); p.innerHTML = it.html; // contenido generado localmente, sin datos externos
-    el.append(b, p); list.appendChild(el);
-  }
-  parent.appendChild(list);
-}
-
-/* ---------- secciones ---------- */
-function renderResumen(panel){
-  panel.textContent = "";
-  const {start, end} = currentRange();
-  sectionTitle(panel, "Resumen", `Vista general del ${fmtDay(start)} al ${fmtDay(end)}.`);
-  const tiles = document.createElement("div"); tiles.className = "tiles";
-  const add = t => { if (t) tiles.appendChild(t); };
-  add(metricTile("StepCount", {fmt:v=>fmtCompact(v), unit:"pasos"}));
-  add(metricTile("ActiveEnergyBurned", {color:"var(--s2)"}));
-  add(metricTile("AppleExerciseTime"));
-  const nights = sleepInRange(start, end);
-  if (nights.length){
-    const m = mean(nights.map(n=>n.asleep));
-    const d28 = mean(sleepInRange(addDays(end,-27), end).map(n=>n.asleep));
-    const p28 = mean(sleepInRange(addDays(end,-55), addDays(end,-28)).map(n=>n.asleep));
-    tiles.appendChild(statTile("Sueño / noche", fmtDurShort(m), "h", {
-      delta: (d28&&p28) ? (d28-p28)/p28*100 : null, good:"up",
-      spark: nights.map(n=>({day:n.night, v:n.asleep})), sparkColor:"var(--sleep-core)",
-    }));
-  }
-  add(metricTile("RestingHeartRate", {color:"var(--s8)"}));
-  add(metricTile("HeartRateVariabilitySDNN", {color:"var(--s8)"}));
-  const wk = workoutsInRange(start, end);
-  if (wk.length){
-    const weeks = Math.max(1, (dayToMs(end)-dayToMs(start))/86400000/7);
-    tiles.appendChild(statTile("Entrenamientos", fmtNum(wk.length), "", {
-      note: `${fmtNum(wk.length/weeks,1)} por semana · ${fmtDur(wk.reduce((a,w)=>a+w.durationMin,0)/wk.length)} de media`,
-    }));
-  }
-  add(metricTile("BodyMass", {color:"var(--s7)"}));
-  panel.appendChild(tiles);
-
-  sectionTitle(panel, "Lo más destacado");
-  renderInsightList(panel, collectInsights(), 5);
-
-  const cards = document.createElement("div"); cards.className = "cards";
-  const c1 = metricBarCard("StepCount", {title:"Pasos"});
-  if (c1) cards.appendChild(c1);
-  const nightsAll = sleepInRange(start, end);
-  if (nightsAll.length) cards.appendChild(sleepStackCard(nightsAll, {}));
-  panel.appendChild(cards);
-}
-
-function renderActividad(panel){
-  panel.textContent = "";
-  const {start, end} = currentRange();
-  sectionTitle(panel, "Actividad", "Movimiento diario: pasos, distancia, energía y minutos de ejercicio.");
-  const tiles = document.createElement("div"); tiles.className = "tiles";
-  [["StepCount",{fmt:fmtCompact,unit:"pasos"}],["DistanceWalkingRunning",{}],["FlightsClimbed",{}],
-   ["ActiveEnergyBurned",{color:"var(--s2)"}],["AppleExerciseTime",{}],["AppleStandTime",{}],["TimeInDaylight",{color:"var(--s4)"}]]
-    .forEach(([t,o])=>{ const el = metricTile(t,o); if (el) tiles.appendChild(el); });
-  panel.appendChild(tiles);
-  const cards = document.createElement("div"); cards.className = "cards";
-  const defs = [
-    ["StepCount", "bar", {}],
-    ["DistanceWalkingRunning", "bar", {}],
-    ["ActiveEnergyBurned", "bar", {color:"var(--s2)"}],
-    ["AppleExerciseTime", "bar", {color:"var(--s2)"}],
-    ["FlightsClimbed", "bar", {}],
-    ["WalkingSpeed", "line", {}],
-  ];
-  for (const [t, kindC, o] of defs){
-    const el = kindC === "bar" ? metricBarCard(t, o) : metricLineCard(t, o);
-    if (el) cards.appendChild(el);
-  }
-  if (!cards.children.length) panel.appendChild(emptyNote("No hay datos de actividad en este rango."));
-  panel.appendChild(cards);
-}
-
-function renderCorazon(panel){
-  panel.textContent = "";
-  const {start, end} = currentRange();
-  sectionTitle(panel, "Corazón", "Frecuencia cardíaca, variabilidad, recuperación y capacidad aeróbica.");
-  const tiles = document.createElement("div"); tiles.className = "tiles";
-  [["RestingHeartRate",{color:"var(--s8)"}],["HeartRateVariabilitySDNN",{color:"var(--s8)"}],
-   ["VO2Max",{color:"var(--s3)"}],["WalkingHeartRateAverage",{color:"var(--s8)"}],
-   ["OxygenSaturation",{}],["RespiratoryRate",{}],["BloodPressureSystolic",{}],["BloodPressureDiastolic",{}]]
-    .forEach(([t,o])=>{ const el = metricTile(t,o); if (el) tiles.appendChild(el); });
-  panel.appendChild(tiles);
-  const cards = document.createElement("div"); cards.className = "cards";
-  // FC diaria con banda min–max
-  const hr = seriesOf("HeartRate", start, end);
-  if (hr.length >= 2){
-    const m = state.daily.get("HeartRate");
-    const info = metricInfo("HeartRate");
-    cards.appendChild(chartCard("Frecuencia cardíaca", "media diaria; la banda muestra mín–máx del día", "ppm", box=>{
-      hrBandChart(box, hr, m);
-    }, () => ({
-      head:["Fecha","Media (ppm)","Mín","Máx"],
-      rows:[...hr].reverse().map(p=>{
-        const d = m.get(p.day)||{};
-        return [fmtDay(p.day), fmtNum(p.v,0), fmtNum(d.min,0), fmtNum(d.max,0)];
-      }),
-    }), {full:true}));
-  }
-  [["RestingHeartRate",{color:"var(--s8)"}],["HeartRateVariabilitySDNN",{color:"var(--s8)"}],
-   ["VO2Max",{color:"var(--s3)"}],["HeartRateRecoveryOneMinute",{color:"var(--s3)"}],
-   ["OxygenSaturation",{}],["RespiratoryRate",{}]]
-    .forEach(([t,o])=>{ const el = metricLineCard(t,o); if (el) cards.appendChild(el); });
-  if (!cards.children.length) panel.appendChild(emptyNote("No hay datos cardíacos en este rango."));
-  panel.appendChild(cards);
-}
-// FC: banda min–max + línea de media
-function hrBandChart(box, series, dayMap){
-  box.textContent = "";
-  const svg = svgEl("svg", {viewBox:`0 0 ${CW} ${CH}`, class:"chart", role:"img", "aria-label":"Frecuencia cardíaca diaria"});
-  const days = series.map(p=>p.day);
-  let vmin = Infinity, vmax = -Infinity;
-  const bands = series.map(p=>{
-    const d = dayMap.get(p.day)||{};
-    const lo = isFinite(d.min)? d.min : p.v, hi = isFinite(d.max)? d.max : p.v;
-    if (lo < vmin) vmin = lo; if (hi > vmax) vmax = hi;
-    return {lo, hi};
-  });
-  const {yOf, ticks} = yScale(vmin, vmax, false);
-  const {x0, x1, y0} = chartFrame(svg, ticks, v=>fmtNum(v,0));
-  const xOf = i => days.length===1 ? (x0+x1)/2 : x0 + i/(days.length-1)*(x1-x0);
-  let top = "", bot = "";
-  bands.forEach((b,i)=>{ top += (i?"L":"M")+` ${xOf(i).toFixed(1)} ${yOf(b.hi).toFixed(1)} `; });
-  for (let i = bands.length-1; i >= 0; i--) bot += `L ${xOf(i).toFixed(1)} ${yOf(bands[i].lo).toFixed(1)} `;
-  svg.appendChild(svgEl("path", {d: top + bot + "Z", fill:"var(--s8)", opacity:.12}));
-  let d = "";
-  series.forEach((p,i)=>{ d += (i?"L":"M")+` ${xOf(i).toFixed(1)} ${yOf(p.v).toFixed(1)} `; });
-  svg.appendChild(svgEl("path", {d, fill:"none", stroke:"var(--s8)", "stroke-width":2, "stroke-linejoin":"round"}));
-  xAxis(svg, days, xOf);
-  const cross = svgEl("line", {y1:PAD.t, y2:y0, stroke:"var(--axis)", "stroke-width":1, visibility:"hidden"});
-  svg.appendChild(cross);
-  box.appendChild(svg);
-  const tt = makeTooltip(box);
-  svg.addEventListener("pointermove", ev=>{
-    const r = svg.getBoundingClientRect();
-    const mx = (ev.clientX - r.left)/r.width*CW;
-    const i = Math.round((mx-x0)/(x1-x0)*(days.length-1));
-    if (i<0||i>=days.length){ hideTooltip(tt); cross.setAttribute("visibility","hidden"); return; }
-    cross.setAttribute("x1", xOf(i)); cross.setAttribute("x2", xOf(i)); cross.setAttribute("visibility","visible");
-    const sw = getComputedStyle(document.documentElement).getPropertyValue("--s8");
-    showTooltip(tt, box, xOf(i)/CW*box.clientWidth, yOf(series[i].v)/CH*r.height, fmtDay(days[i]), [
-      {color:sw, value:fmtNum(series[i].v,0)+" ppm", name:"media"},
-      {color:"transparent", value:`${fmtNum(bands[i].lo,0)}–${fmtNum(bands[i].hi,0)}`, name:"mín–máx"},
-    ]);
-  });
-  svg.addEventListener("pointerleave", ()=>{ hideTooltip(tt); cross.setAttribute("visibility","hidden"); });
-}
-</script>
-<script>
-"use strict";
-/* ============================================================
-   Sueño
-   ============================================================ */
-const SLEEP_STAGES = [
-  {key:"deep",  label:"Profundo", color:"--sleep-deep"},
-  {key:"core",  label:"Ligero (Core)", color:"--sleep-core"},
-  {key:"rem",   label:"REM", color:"--sleep-rem"},
-  {key:"awake", label:"Despierto", color:"--sleep-awake"},
-];
-function sleepStackCard(nights, opts){
-  const hasStages = nights.some(n=>n.hasStages);
-  let items, sub, stages;
-  const many = nights.length > 130;
-  if (many){
-    // media semanal por fase
-    const map = new Map();
-    for (const n of nights){
-      const wk = addDays(n.night, -weekday(n.night));
-      let b = map.get(wk); if (!b){ b = {deep:0,core:0,rem:0,awake:0,unspecified:0,n:0}; map.set(wk,b); }
-      b.deep+=n.deep; b.core+=n.core+n.unspecified; b.rem+=n.rem; b.awake+=n.awake; b.n++;
-    }
-    items = [...map.entries()].sort((a,b)=>a[0]<b[0]?-1:1).map(([day,b])=>({
-      day, parts:{deep:b.deep/b.n/60, core:b.core/b.n/60, rem:b.rem/b.n/60, awake:b.awake/b.n/60},
-    }));
-    sub = "media por noche, agrupada por semanas";
-  } else {
-    items = nights.map(n=>({day:n.night, parts:{
-      deep:n.deep/60, core:(n.core+n.unspecified)/60, rem:n.rem/60, awake:n.awake/60,
-    }}));
-    sub = "horas por noche, apiladas por fase";
-  }
-  stages = hasStages ? SLEEP_STAGES : [{key:"core", label:"Dormido", color:"--sleep-core"},
-                                       {key:"awake", label:"Despierto", color:"--sleep-awake"}];
-  const legend = stages.map(s=>({label:s.label, color:s.color}));
-  return chartCard("Sueño por noche", sub, "h", box=>{
-    stackedBars(box, items, stages, {unit:"h", fmtV:v=>fmtNum(v,1), aria:"Fases de sueño por noche"});
-  }, () => ({
-    head: ["Noche", ...stages.map(s=>s.label+" (h)"), "Total (h)"],
-    rows: [...items].reverse().map(it=>[
-      (many? "Sem. " : "") + fmtDay(it.day),
-      ...stages.map(s=>fmtNum(it.parts[s.key]||0,1)),
-      fmtNum(stages.reduce((a,s)=>a+(it.parts[s.key]||0),0),1),
-    ]),
-  }), Object.assign({legend, full:true}, opts));
-}
-function renderSueno(panel){
-  panel.textContent = "";
-  const {start, end} = currentRange();
-  sectionTitle(panel, "Sueño", "Duración, fases, regularidad y horarios de tus noches.");
-  const nights = sleepInRange(start, end);
-  if (!nights.length){ panel.appendChild(emptyNote("No hay registros de sueño en este rango. El Apple Watch registra el sueño automáticamente si lo llevas por la noche.")); return; }
-  const tiles = document.createElement("div"); tiles.className = "tiles";
-  const asleep = nights.map(n=>n.asleep);
-  const d28 = mean(sleepInRange(addDays(end,-27), end).map(n=>n.asleep));
-  const p28 = mean(sleepInRange(addDays(end,-55), addDays(end,-28)).map(n=>n.asleep));
-  tiles.appendChild(statTile("Duración media", fmtDurShort(mean(asleep)), "h", {
-    delta:(d28&&p28)?(d28-p28)/p28*100:null, good:"up",
-    spark:nights.map(n=>({day:n.night,v:n.asleep})), sparkColor:"var(--sleep-core)"}));
-  const withStages = nights.filter(n=>n.hasStages);
-  if (withStages.length){
-    tiles.appendChild(statTile("Sueño profundo", fmtDur(mean(withStages.map(n=>n.deep))), "", {
-      note:`${fmtNum(mean(withStages.map(n=>n.deep/(n.asleep||1)))*100,0)} % de la noche`}));
-    tiles.appendChild(statTile("Sueño REM", fmtDur(mean(withStages.map(n=>n.rem))), "", {
-      note:`${fmtNum(mean(withStages.map(n=>n.rem/(n.asleep||1)))*100,0)} % de la noche`}));
-  }
-  const fmtClock = h => {
-    const hh = Math.floor(h)%24, mm = Math.round((h-Math.floor(h))*60);
-    return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
-  };
-  tiles.appendChild(statTile("Hora de acostarse", fmtClock(median(nights.map(n=>n.bedHour))), "", {
-    note: stddev(nights.map(n=>n.bedHour)) != null ? `±${Math.round(stddev(nights.map(n=>n.bedHour))*60)} min de variación` : null}));
-  tiles.appendChild(statTile("Hora de despertar", fmtClock(median(nights.map(n=>n.wakeHour))), "", {
-    note:`mediana de ${nights.length} noches`}));
-  const eff = nights.filter(n=>n.inBed>0).map(n=>Math.min(100, n.asleep/n.inBed*100));
-  if (eff.length) tiles.appendChild(statTile("Eficiencia", fmtNum(mean(eff),0), "%", {note:"tiempo dormido / tiempo en cama"}));
-  panel.appendChild(tiles);
-
-  const cards = document.createElement("div"); cards.className = "cards";
-  cards.appendChild(sleepStackCard(nights, {}));
-  // Duración con media 7 noches
-  const durSeries = nights.map(n=>({day:n.night, v:n.asleep/60}));
-  cards.appendChild(chartCard("Duración del sueño", "horas dormidas; línea gruesa = media de 7 noches", "h", box=>{
-    lineChart(box, durSeries, {unit:"h", dec:1, color:"var(--sleep-core)", seriesName:"dormido", aria:"Duración del sueño"});
-  }, () => ({head:["Noche","Horas"], rows:[...durSeries].reverse().map(p=>[fmtDay(p.day), fmtNum(p.v,1)])})));
-  // Consistencia: hora de acostarse
-  const bedSeries = nights.map(n=>({day:n.night, v:n.bedHour}));
-  cards.appendChild(chartCard("Hora de acostarse", "en horas (24 = medianoche, 25 = 1:00…)", "h", box=>{
-    lineChart(box, bedSeries, {unit:"", dec:1, color:"var(--s7)", seriesName:"acostarse",
-      fmtV:v=>fmtClock(v), aria:"Hora de acostarse"});
-  }, () => ({head:["Noche","Hora"], rows:[...bedSeries].reverse().map(p=>[fmtDay(p.day), fmtClock(p.v)])})));
-  // Sueño por día de la semana
-  const byWd = Array.from({length:7}, ()=>[]);
-  nights.forEach(n=> byWd[weekday(n.night)].push(n.asleep/60));
-  const wdSeries = byWd.map((a,i)=>({day:i, v:mean(a)||0}));
-  cards.appendChild(chartCard("Sueño por día de la semana", "media de horas según la noche de la semana", "h", box=>{
-    barChart(box, wdSeries, {unit:"h", dec:1, color:"var(--sleep-core)", seriesName:"media",
-      catLabels:DIAS,
-      fmtName:i=>["lunes","martes","miércoles","jueves","viernes","sábado","domingo"][i],
-      aria:"Sueño medio por día de la semana"});
-  }, () => ({head:["Día","Horas medias"], rows:wdSeries.map((p,i)=>[DIAS[i], fmtNum(p.v,1)])})));
-  panel.appendChild(cards);
-  // Temperatura de muñeca si existe
-  const wrist = metricLineCard("AppleSleepingWristTemperature", {color:"var(--s5)"});
-  if (wrist){ const c2 = document.createElement("div"); c2.className = "cards"; c2.style.marginTop = "14px"; c2.appendChild(wrist); panel.appendChild(c2); }
-}
-
-/* ============================================================
-   Entrenamientos
-   ============================================================ */
-function renderEntrenos(panel){
-  panel.textContent = "";
-  const {start, end} = currentRange();
-  sectionTitle(panel, "Entrenamientos", "Sesiones registradas por el Apple Watch o apps de ejercicio.");
-  const wk = workoutsInRange(start, end);
-  if (!wk.length){ panel.appendChild(emptyNote("No hay entrenamientos en este rango.")); return; }
-  const weeks = Math.max(1, (dayToMs(end)-dayToMs(start))/86400000/7);
-  const totMin = wk.reduce((a,w)=>a+w.durationMin,0);
-  const totKcal = wk.reduce((a,w)=>a+(w.kcal||0),0);
-  const totKm = wk.reduce((a,w)=>a+(w.km||0),0);
-  const tiles = document.createElement("div"); tiles.className = "tiles";
-  tiles.appendChild(statTile("Sesiones", fmtNum(wk.length), "", {note:`${fmtNum(wk.length/weeks,1)} por semana`}));
-  tiles.appendChild(statTile("Tiempo total", fmtDur(totMin), "", {note:`${fmtDur(totMin/wk.length)} por sesión`}));
-  if (totKcal) tiles.appendChild(statTile("Energía", fmtCompact(totKcal), "kcal", {note:`${fmtNum(totKcal/wk.length,0)} kcal por sesión`}));
-  if (totKm) tiles.appendChild(statTile("Distancia", fmtNum(totKm,1), "km", {}));
-  const hrW = wk.filter(w=>w.avgHR);
-  if (hrW.length) tiles.appendChild(statTile("FC media en ejercicio", fmtNum(mean(hrW.map(w=>w.avgHR)),0), "ppm", {}));
-  panel.appendChild(tiles);
-
-  const cards = document.createElement("div"); cards.className = "cards";
-  // Minutos por semana
-  const map = new Map();
-  for (const w of wk){
-    const wkKey = addDays(w.day, -weekday(w.day));
-    map.set(wkKey, (map.get(wkKey)||0) + w.durationMin);
-  }
-  const weekly = [...map.entries()].sort((a,b)=>a[0]<b[0]?-1:1).map(([day,v])=>({day, v}));
-  cards.appendChild(chartCard("Minutos de entrenamiento por semana", null, "min", box=>{
-    barChart(box, weekly, {unit:"min", dec:0, color:"var(--s2)", seriesName:"entrenamiento",
-      fmtName:d=>"Semana del "+fmtDay(d), aria:"Minutos de entrenamiento semanales"});
-  }, () => ({head:["Semana","Minutos"], rows:[...weekly].reverse().map(p=>["Sem. "+fmtDay(p.day), fmtNum(p.v,0)])}), {full:true}));
-  // Por tipo
-  const byType = new Map();
-  for (const w of wk){
-    let b = byType.get(w.type); if (!b){ b = {n:0, min:0, kcal:0}; byType.set(w.type, b); }
-    b.n++; b.min += w.durationMin; b.kcal += w.kcal||0;
-  }
-  const types = [...byType.entries()].sort((a,b)=> b[1].min - a[1].min);
-  cards.appendChild(chartCard("Tiempo por tipo de ejercicio", null, "min", box=>{
-    box.textContent = "";
-    const top = types.slice(0, 10);
-    const maxV = top[0][1].min;
-    const wrap = document.createElement("div");
-    wrap.style.display = "grid"; wrap.style.gap = "7px"; wrap.style.padding = "6px 0 10px";
-    for (const [t, b] of top){
-      const row = document.createElement("div");
-      row.style.display = "grid"; row.style.gridTemplateColumns = "150px 1fr 90px"; row.style.gap = "10px"; row.style.alignItems = "center";
-      const name = document.createElement("span"); name.textContent = workoutName(t);
-      name.style.fontSize = "13px"; name.style.color = "var(--ink-2)"; name.style.overflow="hidden"; name.style.textOverflow="ellipsis"; name.style.whiteSpace="nowrap";
-      const track = document.createElement("div");
-      track.style.height = "14px"; track.style.borderRadius = "4px"; track.style.background = "var(--surface-2)"; track.style.overflow="hidden";
-      const fill = document.createElement("div");
-      fill.style.height = "100%"; fill.style.width = Math.max(2, b.min/maxV*100) + "%";
-      fill.style.background = "var(--s2)"; fill.style.borderRadius = "4px";
-      track.appendChild(fill);
-      const val = document.createElement("span"); val.textContent = fmtDur(b.min) + ` · ${b.n}×`;
-      val.style.fontSize = "12px"; val.style.color = "var(--ink-2)"; val.style.fontVariantNumeric = "tabular-nums"; val.style.textAlign = "right";
-      row.append(name, track, val); wrap.appendChild(row);
-    }
-    box.appendChild(wrap);
-  }, () => ({head:["Tipo","Sesiones","Minutos","kcal"],
-    rows: types.map(([t,b])=>[workoutName(t), fmtNum(b.n), fmtNum(b.min,0), fmtNum(b.kcal,0)])}), {full:true}));
-  panel.appendChild(cards);
-
-  // Últimas sesiones
-  sectionTitle(panel, "Últimas sesiones");
-  const tw = document.createElement("div"); tw.className = "data-table"; tw.style.display = "block"; tw.style.maxHeight = "360px";
-  const tbl = document.createElement("table");
-  const thead = document.createElement("thead"); const trh = document.createElement("tr");
-  ["Fecha","Tipo","Duración","kcal","km","FC media"].forEach(c=>{ const th = document.createElement("th"); th.textContent = c; trh.appendChild(th); });
-  thead.appendChild(trh); tbl.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  [...wk].reverse().slice(0, 200).forEach(w=>{
-    const tr = document.createElement("tr");
-    [fmtDay(w.day) + " " + (w.startStr||"").slice(11,16), workoutName(w.type), fmtDur(w.durationMin),
-     w.kcal? fmtNum(w.kcal,0):"–", w.km? fmtNum(w.km,2):"–", w.avgHR? fmtNum(w.avgHR,0):"–"]
-      .forEach((c,i)=>{ const td = document.createElement("td"); td.textContent = c; if(i<2) td.style.textAlign="left"; tr.appendChild(td); });
-    tbody.appendChild(tr);
-  });
-  tbl.appendChild(tbody); tw.appendChild(tbl); panel.appendChild(tw);
-}
-</script>
-<script>
-"use strict";
-/* ============================================================
-   Tendencias y Explorador
-   ============================================================ */
-function renderTendencias(panel){
-  panel.textContent = "";
-  const {start, end} = currentRange();
-  sectionTitle(panel, "Tendencias", "Comparativa de las últimas 4 semanas frente a las 4 anteriores, y deriva a largo plazo dentro del rango.");
-  renderInsightList(panel, collectInsights());
-  // deriva a largo plazo (regresión) sobre métricas clave
-  const rows = [];
-  for (const type of ["StepCount","ActiveEnergyBurned","RestingHeartRate","HeartRateVariabilitySDNN","VO2Max","BodyMass"]){
-    const info = metricInfo(type);
-    const s = seriesOf(type, start, end);
-    if (s.length < 14) continue;
-    const r = linReg(movingAvg(s, 7));
-    if (!r || !r.days) continue;
-    const total = r.slope * r.days;
-    const base = r.intercept || mean(s.map(p=>p.v));
-    const pct = base ? total/Math.abs(base)*100 : 0;
-    let dir = "→ estable", status = "neutral";
-    if (Math.abs(pct) >= 4){
-      dir = (total>0? "▲ sube " : "▼ baja ") + fmtNum(Math.abs(total), info.dec) + " " + info.unit;
-      if (info.good) status = (total>0 && info.good==="up")||(total<0 && info.good==="down") ? "good" : "bad";
-    }
-    rows.push({label:info.label, dir, status, pct});
-  }
-  const sleepS = sleepInRange(start, end).map(n=>({day:n.night, v:n.asleep}));
-  if (sleepS.length >= 14){
-    const r = linReg(movingAvg(sleepS,7));
-    if (r && r.days){
-      const total = r.slope*r.days;
-      rows.push({label:"Sueño por noche", status: Math.abs(total)<15? "neutral" : (total>0?"good":"bad"),
-        dir: Math.abs(total)<15? "→ estable" : (total>0?"▲ sube ":"▼ baja ") + fmtNum(Math.abs(total),0) + " min", pct:0});
-    }
-  }
-  if (rows.length){
-    sectionTitle(panel, "Deriva en el rango seleccionado", "Cambio total estimado por regresión sobre la media de 7 días.");
-    const list = document.createElement("div"); list.className = "insight-list";
-    for (const r of rows){
-      const el = document.createElement("div"); el.className = "insight";
-      const b = document.createElement("div"); b.className = "badge " + r.status;
-      b.textContent = r.status === "good" ? "✓" : r.status === "bad" ? "!" : "•";
-      const p = document.createElement("p");
-      const bl = document.createElement("b"); bl.textContent = r.label + ": ";
-      p.appendChild(bl); p.appendChild(document.createTextNode(r.dir));
-      el.append(b, p); list.appendChild(el);
-    }
-    panel.appendChild(list);
-  }
-}
-function renderExplorador(panel){
-  panel.textContent = "";
-  sectionTitle(panel, "Explorador de métricas", "Todas las métricas encontradas en tu exportación. Elige una para verla en detalle.");
-  const bar = document.createElement("div"); bar.className = "explorer-bar";
-  const sel = document.createElement("select");
-  sel.setAttribute("aria-label", "Métrica a explorar");
-  const metrics = [...state.meta.entries()]
-    .filter(([t,m]) => state.daily.has(t) && state.daily.get(t).size >= 2)
-    .map(([t,m]) => ({t, label: metricInfo(t).label, count: m.count}))
-    .sort((a,b)=> a.label.localeCompare(b.label, "es"));
-  for (const m of metrics){
-    const o = document.createElement("option");
-    o.value = m.t; o.textContent = `${m.label} (${fmtCompact(m.count)} registros)`;
-    sel.appendChild(o);
-  }
-  bar.appendChild(sel);
-  const info = document.createElement("span"); info.style.color = "var(--muted)"; info.style.fontSize = "13px";
-  info.textContent = `${metrics.length} métricas disponibles`;
-  bar.appendChild(info);
-  panel.appendChild(bar);
-  const holder = document.createElement("div"); holder.className = "cards";
-  panel.appendChild(holder);
-  const draw = () => {
-    holder.textContent = "";
-    const t = sel.value;
-    if (!t) return;
-    const inf = metricInfo(t);
-    const card = inf.kind === "sum" ? metricBarCard(t, {full:true}) : metricLineCard(t, {full:true});
-    if (card) holder.appendChild(card);
-    else holder.appendChild(emptyNote("Sin datos en el rango seleccionado — prueba con «Todo»."));
-    const d = periodDelta(t, currentRange().end);
-    if (d){
-      const note = document.createElement("p"); note.className = "section-sub"; note.style.gridColumn = "1 / -1";
-      note.textContent = `Últimas 4 semanas: media ${fmtNum(d.recent, inf.dec)} ${inf.unit} (${d.pct>=0?"+":""}${fmtNum(d.pct,1)} % frente a las 4 anteriores).`;
-      holder.appendChild(note);
-    }
-  };
-  sel.addEventListener("change", draw);
-  if (metrics.length) draw(); else panel.appendChild(emptyNote("No se encontraron métricas."));
-}
-
-/* ============================================================
-   Navegación, rango y arranque
-   ============================================================ */
-const TABS = [
-  ["resumen","Resumen", renderResumen],
-  ["actividad","Actividad", renderActividad],
-  ["corazon","Corazón", renderCorazon],
-  ["sueno","Sueño", renderSueno],
-  ["entrenos","Entrenamientos", renderEntrenos],
-  ["tendencias","Tendencias", renderTendencias],
-  ["explorador","Explorador", renderExplorador],
-];
-const RANGES = [["30","30 días"],["90","90 días"],["180","6 meses"],["365","1 año"],["all","Todo"]];
-let activeTab = "resumen";
-function currentRange(){
-  const end = state.maxDay || msToDay(Date.now());
-  if (state.range === "all") return {start: state.minDay || end, end};
-  return {start: addDays(end, -(+state.range) + 1), end};
-}
-function renderActive(){
-  const def = TABS.find(t=>t[0]===activeTab);
-  const panel = $("#panel-"+activeTab);
-  $$("section.tab-panel").forEach(p=> p.classList.toggle("active", p === panel));
-  $$("#tabs button").forEach(b=> b.setAttribute("aria-selected", String(b.dataset.tab === activeTab)));
-  def[2](panel);
-  const {start, end} = currentRange();
-  $("#rangeLabel").textContent = `${fmtDay(start)} — ${fmtDay(end)}`;
-}
-function buildChrome(){
-  const tabs = $("#tabs"); tabs.textContent = "";
-  for (const [id, label] of TABS){
-    const b = document.createElement("button");
-    b.textContent = label; b.dataset.tab = id; b.setAttribute("role","tab");
-    b.addEventListener("click", ()=>{ activeTab = id; renderActive(); });
-    tabs.appendChild(b);
-  }
-  const rg = $("#rangeGroup"); rg.textContent = "";
-  for (const [val, label] of RANGES){
-    const b = document.createElement("button");
-    b.textContent = label; b.dataset.range = val;
-    b.setAttribute("aria-pressed", String(state.range === val));
-    b.addEventListener("click", ()=>{
-      state.range = val;
-      $$("#rangeGroup button").forEach(x=> x.setAttribute("aria-pressed", String(x === b)));
-      renderActive();
-    });
-    rg.appendChild(b);
-  }
-}
-function showDashboard(){
-  $("#landing").style.display = "none";
-  $("#dash").style.display = "block";
-  const fs = $("#fileState");
-  fs.textContent = "";
-  const chip = document.createElement("span");
-  const total = [...state.meta.values()].reduce((a,m)=>a+m.count,0);
-  chip.textContent = `${state.fileName} · ${fmtCompact(total)} registros · ${state.workouts.length} entrenos · ${state.sleepNights.length} noches`;
-  fs.appendChild(chip);
-  buildChrome();
-  renderActive();
-}
-/* ---------- carga de archivos ---------- */
-const drop = $("#drop"), fileInput = $("#fileInput");
-const progressEl = $("#progress"), progressBar = $("#progressBar"), progressText = $("#progressText");
-function setProgress(frac, bytes, phase){
-  progressEl.style.display = "block";
-  if (frac != null) progressBar.style.width = (frac*100).toFixed(1) + "%";
-  progressText.textContent = phase + (bytes ? ` · ${fmtNum(bytes/1048576,0)} MB procesados` : "");
-}
-async function loadFile(file){
-  try{
-    resetData();
-    state.fileName = file.name;
-    setProgress(0, 0, "Leyendo archivo…");
-    let stream, total = null;
-    if (/\.zip$/i.test(file.name)){
-      setProgress(null, 0, "Abriendo ZIP…");
-      const entry = await findHealthXmlEntry(await file.arrayBuffer());
-      stream = entry.stream; total = entry.usize || null;
-      setProgress(0, 0, "Analizando " + entry.name.split("/").pop() + "…");
-    } else {
-      stream = file.stream(); total = file.size;
-    }
-    await parseStream(stream, total, (frac, bytes)=> setProgress(frac, bytes, "Analizando datos de salud…"));
-    setProgress(1, null, "Preparando panel…");
-    await new Promise(r=>setTimeout(r, 30));
-    finalizeData();
-    if (!state.minDay) throw new Error("No se encontraron registros de salud en el archivo.");
-    progressEl.style.display = "none";
-    showDashboard();
-  } catch(err){
-    progressEl.style.display = "none";
-    alert("No se pudo leer el archivo: " + err.message);
-    console.error(err);
-  }
-}
-function resetData(){
-  state.loaded = false; state.fileName = ""; state.exportDate = "";
-  state.daily = new Map(); state.meta = new Map(); state.sleep = new Map();
-  state.sleepNights = []; state.workouts = []; state.activitySummary = new Map();
-  state.minDay = null; state.maxDay = null; currentWorkout = null;
-}
-drop.addEventListener("click", ()=> fileInput.click());
-drop.addEventListener("keydown", e=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); fileInput.click(); } });
-fileInput.addEventListener("change", ()=>{ if (fileInput.files[0]) loadFile(fileInput.files[0]); });
-["dragover","dragenter"].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add("over"); }));
-["dragleave","drop"].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", e=>{
-  const f = e.dataTransfer.files && e.dataTransfer.files[0];
-  if (f) loadFile(f);
-});
-document.addEventListener("dragover", e=> e.preventDefault());
-document.addEventListener("drop", e=> e.preventDefault());
-$("#resetBtn").addEventListener("click", ()=>{
-  resetData();
-  $("#dash").style.display = "none";
-  $("#landing").style.display = "block";
-  $("#fileState").textContent = "";
-  fileInput.value = "";
-});
-</script>
-<script>
-"use strict";
-/* ============================================================
-   Datos de ejemplo (sintéticos) para probar la app
-   ============================================================ */
-function mulberry32(seed){
-  return function(){
-    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-function loadDemo(){
-  resetData();
-  state.fileName = "datos de ejemplo";
-  const rnd = mulberry32(20260822);
-  const gauss = () => (rnd()+rnd()+rnd()+rnd()-2)/2*1.6;
-  const today = msToDay(Date.now());
-  const N = 400;
-  for (let i = N; i >= 1; i--){
-    const day = addDays(today, -i);
-    const wd = weekday(day);
-    const t = (N - i)/N; // 0→1 progreso temporal
-    const weekendBoost = wd >= 5 ? 0.85 : 1;
-    // pasos con tendencia suave al alza y ruido
-    const steps = Math.max(1200, Math.round((7800 + 1800*t + gauss()*2400) * weekendBoost));
-    accSum("StepCount", day, "iPhone", steps); noteMeta("StepCount","pasos","sum");
-    accSum("DistanceWalkingRunning", day, "iPhone", steps*0.00072); noteMeta("DistanceWalkingRunning","km","sum");
-    accSum("FlightsClimbed", day, "iPhone", Math.max(0, Math.round(8 + gauss()*5))); noteMeta("FlightsClimbed","pisos","sum");
-    const active = Math.max(120, 420 + 120*t + gauss()*140);
-    accSum("ActiveEnergyBurned", day, "Apple Watch", active); noteMeta("ActiveEnergyBurned","kcal","sum");
-    accSum("AppleExerciseTime", day, "Apple Watch", Math.max(0, Math.round(28 + 14*t + gauss()*16))); noteMeta("AppleExerciseTime","min","sum");
-    accSum("AppleStandTime", day, "Apple Watch", Math.max(60, Math.round(560 + gauss()*90))); noteMeta("AppleStandTime","min","sum");
-    // corazón: FC reposo baja poco a poco (mejora), VFC sube
-    const rhr = 62 - 4.5*t + gauss()*1.6;
-    accAvg("RestingHeartRate", day, rhr); noteMeta("RestingHeartRate","ppm","avg");
-    accAvg("HeartRateVariabilitySDNN", day, 38 + 9*t + gauss()*7); noteMeta("HeartRateVariabilitySDNN","ms","avg");
-    for (let s = 0; s < 12; s++) accAvg("HeartRate", day, 68 + gauss()*14 + (s>7? 26*rnd() : 0));
-    noteMeta("HeartRate","ppm","avg");
-    accAvg("RespiratoryRate", day, 14.5 + gauss()*0.7); noteMeta("RespiratoryRate","rpm","avg");
-    if (rnd() < 0.25){ accAvg("OxygenSaturation", day, 96.5 + gauss()*0.8); noteMeta("OxygenSaturation","%","avg"); }
-    if (rnd() < 0.12){ accAvg("VO2Max", day, 38.5 + 3.2*t + gauss()*0.9); noteMeta("VO2Max","ml/kg·min","avg"); }
-    if (rnd() < 0.5){ accAvg("BodyMass", day, 78.5 - 2.2*t + gauss()*0.4); noteMeta("BodyMass","kg","avg"); }
-    // sueño con fases
-    const bedH = 23 + (wd>=4 ? 0.9*rnd() : 0.3*rnd()) + gauss()*0.4; // hora de acostarse
-    const durH = Math.min(9.6, Math.max(4.8, 7.15 + 0.35*t + gauss()*0.8 + (wd>=5? 0.5 : 0)));
-    const asleepMin = durH*60;
-    const deep = asleepMin * (0.14 + 0.03*rnd());
-    const rem = asleepMin * (0.20 + 0.05*rnd());
-    const core = asleepMin - deep - rem;
-    const awake = 10 + 25*rnd();
-    const bh = Math.floor(bedH % 24), bm = Math.floor((bedH % 1)*60);
-    const startStr = `${addDays(day,-1)} ${String(bh).padStart(2,"0")}:${String(bm).padStart(2,"0")}:00 +0100`;
-    const endMin = (bedH*60 + asleepMin + awake) % 1440;
-    const endStr = `${day} ${String(Math.floor(endMin/60)%24).padStart(2,"0")}:${String(Math.floor(endMin%60)).padStart(2,"0")}:00 +0100`;
-    const nm = new Map();
-    nm.set("Apple Watch", {inBed: asleepMin + awake, asleep: asleepMin, core, deep, rem, awake,
-      unspecified:0, start: parseAppleDate(startStr), end: parseAppleDate(endStr),
-      startStr, endStr, hasStages:true});
-    state.sleep.set(day, nm);
-    trackDay(day);
-    // entrenamientos: ~4/semana, mezcla de tipos
-    if (rnd() < (wd===1||wd===3? 0.75 : wd===5? 0.6 : 0.22)){
-      const types = ["HKWorkoutActivityTypeRunning","HKWorkoutActivityTypeFunctionalStrengthTraining",
-        "HKWorkoutActivityTypeCycling","HKWorkoutActivityTypeYoga","HKWorkoutActivityTypeHighIntensityIntervalTraining"];
-      const type = types[Math.floor(rnd()*types.length)];
-      const dur = 25 + rnd()*45;
-      state.workouts.push({
-        type, day, startStr:`${day} 18:30:00 +0100`,
-        start: parseAppleDate(`${day} 18:30:00 +0100`), end: parseAppleDate(`${day} 18:30:00 +0100`) + dur*60000,
-        durationMin: dur,
-        kcal: dur * (type.includes("Running")||type.includes("HighIntensity") ? 11 : type.includes("Yoga") ? 4 : 8) * (0.9+0.2*rnd()),
-        km: type.includes("Running") ? dur*0.16*(0.9+0.2*rnd()) : type.includes("Cycling") ? dur*0.42 : null,
-        avgHR: type.includes("Yoga") ? 88+gauss()*6 : 138+gauss()*10, source:"Apple Watch",
-      });
-    }
-  }
-  finalizeData();
-  showDashboard();
-}
-$("#demoBtn").addEventListener("click", loadDemo);
-</script>
+<script src="/js/tema.js"></script>
+<script src="/js/salud.js"></script>
 </body>
 </html>

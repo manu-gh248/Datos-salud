@@ -1,0 +1,20 @@
+# App personal de análisis de Apple Salud. Sitio estático puro, sin build y
+# sin funciones: los datos de salud nunca salen del navegador del usuario.
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    # Herramienta personal: que no la indexe ningún buscador.
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/assets/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

@@ -1,34 +1,34 @@
-# Pulso — panel de salud del iPhone
+# Tu salud, en claro
 
-Aplicación web que lee la exportación completa de la app **Salud** de Apple y la convierte en un panel interactivo con gráficas, tendencias e ideas: actividad, corazón, **sueño con fases**, **entrenamientos** y un explorador con todas las métricas del archivo.
+Aplicación web personal que analiza el export completo de la app Salud del
+iPhone (`export.zip`): actividad, corazón, sueño por fases, entrenamientos,
+peso, medicación y suplementos. Compara con la media de hombres de tu edad,
+cruza métricas buscando patrones (esperados e inesperados) y lo explica todo
+con ejemplos aplicados a tus datos.
 
-**100 % local y privado**: todo se procesa con JavaScript en tu navegador. No hay servidor, ni analítica, ni subida de datos a ningún sitio.
+## Privacidad, por diseño
 
-## Cómo usarla
+Todo el análisis ocurre en el navegador, dentro de un Web Worker: el ZIP se
+descomprime con `DecompressionStream` y el XML se recorre en streaming, así
+que aguanta exports de cientos de MB. **No hay servidor que reciba nada**: el
+sitio es estático puro (este repo se publica tal cual, sin build ni
+funciones). Los agregados se guardan en `localStorage` para no recargar el
+archivo cada vez; «Borrar mis datos» los elimina.
 
-1. Abre `index.html` en el navegador (doble clic basta; no necesita servidor ni instalación).
-2. En el iPhone: app **Salud** → tu foto de perfil → **«Exportar todos los datos de salud»**.
-3. Pásate el `exportar.zip` al ordenador (AirDrop, iCloud Drive, correo…) y arrástralo a la página. También acepta el `export.xml` / `exportación.xml` suelto.
-4. Explora: pestañas de **Resumen, Actividad, Corazón, Sueño, Entrenamientos, Tendencias y Explorador**, con rangos de 30/90 días, 6 meses, 1 año o todo el histórico.
+## Estructura
 
-¿Sin datos a mano? El botón **«Probar con datos de ejemplo»** genera un año de datos sintéticos para ver la app en acción.
+- `index.html` — la aplicación (interfaz y estilos propios de la página)
+- `js/salud.js` — gráficas SVG, motor de hallazgos y comparativas
+- `js/salud-worker.js` — worker de análisis del export (ZIP/XML en streaming)
+- `js/tema.js` + `assets/` — tema claro/oscuro, tipografía y estilos base
+- `netlify.toml` — cabeceras (noindex, sin funciones)
 
-> Consejo: si activas **GitHub Pages** en este repositorio (Settings → Pages → rama principal), tendrás la app disponible desde cualquier dispositivo, incluido el propio iPhone.
+## Cómo se usa
 
-## Qué analiza
+En el iPhone: Salud → tu foto → «Exportar todos los datos de salud». Pásate
+el `export.zip` al Mac (AirDrop) y arrástralo a la página. Sin descomprimir.
 
-- **Actividad**: pasos, distancia, pisos, energía activa, minutos de ejercicio, tiempo de pie, luz de día…
-- **Corazón**: FC diaria con banda mín–máx, FC en reposo, variabilidad (VFC/SDNN), VO₂ máx, recuperación, SpO₂, frecuencia respiratoria, tensión.
-- **Sueño**: horas por noche apiladas por fase (profundo / ligero / REM / despierto), duración con media de 7 noches, hora de acostarse y su regularidad, sueño por día de la semana, eficiencia, temperatura de muñeca.
-- **Entrenamientos**: sesiones por semana, tiempo por tipo de ejercicio, kcal, distancia, FC media y tabla de últimas sesiones.
-- **Tendencias**: comparación automática de las últimas 4 semanas frente a las 4 anteriores y deriva a largo plazo por regresión (con señal de si el cambio es bueno o malo para cada métrica).
-- **Explorador**: cualquier métrica presente en la exportación, aunque no esté en las listas anteriores, con su gráfica y su tabla.
+## Despliegue
 
-## Detalles técnicos
-
-- Un único `index.html` sin dependencias. El ZIP se abre con un lector propio (soporta ZIP64) y se descomprime con `DecompressionStream` nativo; el XML —que puede ocupar cientos de MB— se analiza **en streaming** agregando por día, sin cargar los registros en memoria.
-- Los totales acumulativos (pasos, energía, distancia…) se **deduplican por fuente**: cuando iPhone y Apple Watch registran lo mismo, se toma la fuente con mayor total del día en lugar de sumar ambas.
-- Para el sueño se elige por noche la fuente más completa (prioriza la que aporta fases) y cada noche se asigna a la mañana en que termina.
-- Gráficas SVG propias con tooltip, media móvil de 7 días y **vista de tabla accesible** en cada tarjeta. Tema claro y oscuro automáticos.
-
-Esta herramienta no ofrece consejo médico.
+Cualquier hosting estático vale. En Netlify: nuevo proyecto → importar este
+repositorio/rama → sin comando de build → publicar el directorio raíz.
