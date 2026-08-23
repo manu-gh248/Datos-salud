@@ -384,6 +384,127 @@ function graficaApilada(cont, fechas, capas, valores, ops) {
   cont.appendChild(svg);
 }
 
+// --- barras agrupadas: cada serie con su propia barra, no apiladas ---
+// La apilada enseña bien el total, pero esconde si una parte concreta sube o
+// baja. Aquí cada serie tiene su barra, y se puede aislar una sola para
+// seguirla en el tiempo (entonces aparece además su línea de tendencia).
+function graficaAgrupada(cont, fechas, capas, valores, ops) {
+  cont.replaceChildren();
+  const alto = ops.alto || 240;
+  const anchoDisp = anchoDe(cont);
+  // Con muchas semanas y varias series, el grupo necesita un ancho mínimo
+  // legible; si no cabe, la gráfica se desplaza en horizontal.
+  const minGrupo = Math.max(3, capas.length * 4.5);
+  let ancho = Math.max(anchoDisp, fechas.length * (minGrupo + 3) + 60);
+  // Si se pasa por poco, se aprieta un pelo antes que obligar a desplazar.
+  if (ancho < anchoDisp * 1.08) ancho = anchoDisp;
+  const svg = el("svg", { viewBox: `0 0 ${ancho} ${alto}`, width: ancho, height: alto, role: "img" });
+
+  let maxV = 0;
+  for (const d of valores) if (d) for (const c of capas) if ((d[c.clave] || 0) > maxV) maxV = d[c.clave];
+  const ey = escalaY(Math.max(maxV, 1) * 1.08);
+  const fmtY = ops.formatoEjeY ? (v) => ops.formatoEjeY(v, ey.max) : null;
+  const { X, Y, w } = marco(svg, ancho, alto, ey, fechas, fmtY);
+  const paso = fechas.length > 1 ? w / (fechas.length - 1) : w;
+  const grupoW = Math.max(4, Math.min(34, paso - 3));
+  const hueco = capas.length > 1 ? 1 : 0;
+  const barW = Math.max(1.5, (grupoW - hueco * (capas.length - 1)) / capas.length);
+  const base = Y(ey.min);
+
+  valores.forEach((d, i) => {
+    if (!d) return;
+    // El primer y el último grupo se pegan al marco en vez de salirse de él.
+    const x0 = Math.min(Math.max(X(i) - grupoW / 2, MARGEN.izq), ancho - MARGEN.der - grupoW);
+    capas.forEach((c, ci) => {
+      const v = d[c.clave] || 0;
+      if (v <= 0) return;
+      const y = Y(v);
+      const r = el("rect", { x: x0 + ci * (barW + hueco), y, width: barW, height: Math.max(1, base - y), rx: barW > 5 ? 2 : 0, class: "viz-barra" });
+      r.style.fill = c.color;
+      svg.appendChild(r);
+    });
+  });
+
+  // Con una sola serie a la vista, su media móvil deja ver la tendencia.
+  if (ops.tendencia && capas.length === 1 && fechas.length >= 8) {
+    const serie = valores.map((d) => (d && d[capas[0].clave] > 0 ? d[capas[0].clave] : null));
+    const mm = mediaMovil(serie, Math.max(3, Math.round(fechas.length / 10)));
+    svg.appendChild(trazaLinea(mm, X, Y, "var(--s1-linea)"));
+  }
+
+  capaColumnas(svg, fechas, X, paso, alto, (i, ev) => {
+    const d = valores[i];
+    const filas = [{ titulo: true, texto: ops.etiquetaX ? ops.etiquetaX(fechas[i]) : ffechaLarga(fechas[i]) }];
+    if (d) {
+      for (const c of capas) {
+        if (d[c.clave]) filas.push({ valor: ops.formato ? ops.formato(d[c.clave]) : fnum(d[c.clave]), texto: " " + c.nombre, color: c.color });
+      }
+      if (ops.formatoTotal && capas.length > 1) {
+        filas.push({ valor: ops.formatoTotal(suma(capas.map((c) => d[c.clave] || 0))), texto: " total" });
+      }
+    } else filas.push({ valor: "–", texto: " sin datos" });
+    muestraTip(ev.clientX, ev.clientY, filas);
+  });
+
+  const envoltura = document.createElement("div");
+  envoltura.style.overflowX = "auto";
+  envoltura.appendChild(svg);
+  cont.appendChild(envoltura);
+}
+
+// Leyenda que además filtra: al tocar una serie se queda sola.
+function leyendaFiltro(tarjeta, capas, seleccion, alCambiar) {
+  let ley = $(".viz-leyenda", tarjeta);
+  if (!ley) {
+    ley = document.createElement("div");
+    ley.className = "viz-leyenda";
+    $(".cab-tarjeta", tarjeta).after(ley);
+  }
+  ley.replaceChildren();
+  for (const it of capas) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "viz-leyenda-item chip-filtro" + (seleccion && seleccion !== it.clave ? " apagado" : "");
+    chip.setAttribute("aria-pressed", String(seleccion === it.clave));
+    const sw = document.createElement("span");
+    sw.className = it.linea ? "viz-sw-linea" : "viz-sw";
+    sw.style.background = it.color;
+    chip.appendChild(sw);
+    chip.appendChild(document.createTextNode(it.nombre));
+    chip.addEventListener("click", () => alCambiar(seleccion === it.clave ? "" : it.clave));
+    ley.appendChild(chip);
+  }
+  if (seleccion) {
+    const todas = document.createElement("button");
+    todas.type = "button";
+    todas.className = "viz-leyenda-item chip-filtro chip-todas";
+    todas.textContent = "Ver todas";
+    todas.addEventListener("click", () => alCambiar(""));
+    ley.appendChild(todas);
+  } else {
+    const pista = document.createElement("span");
+    pista.className = "chip-pista";
+    pista.textContent = "toca una para verla sola";
+    ley.appendChild(pista);
+  }
+}
+
+// Junta las dos cosas: la leyenda que filtra y la gráfica agrupada, guardando
+// la elección en la propia tarjeta para que sobreviva al cambio de rango.
+function graficaConSelector(tarjeta, fechas, capas, valores, ops) {
+  const pinta = () => {
+    let sel = tarjeta.dataset.serie || "";
+    if (sel && !capas.some((c) => c.clave === sel)) sel = "";
+    const activas = sel ? capas.filter((c) => c.clave === sel) : capas;
+    leyendaFiltro(tarjeta, capas, sel, (clave) => {
+      tarjeta.dataset.serie = clave;
+      pinta();
+    });
+    graficaAgrupada($(".viz", tarjeta), fechas, activas, valores, { ...ops, tendencia: !!sel });
+  };
+  pinta();
+}
+
 // Capa de interacción compartida: una franja por columna, con el blanco de
 // golpe más ancho que la marca; funciona con ratón, dedo y teclado.
 function capaColumnas(svg, fechas, X, paso, alto, alEntrar, alSalir) {
@@ -675,6 +796,7 @@ function render() {
   renderSueno(fechas);
   renderRitmo(fechas);
   renderEntrenos(fechas);
+  renderPerfilEntrenos(fechas);
   renderPeso(fechas);
   renderExplorador(fechas);
 }
@@ -974,13 +1096,21 @@ function renderSueno(fechas) {
     sub = "Cada noche, tiempo en cada fase. La noche se apunta al día en que te despiertas.";
   }
   $(".sub-tarjeta", tarjeta).textContent = sub;
-  if (capas.length > 1) leyenda(tarjeta, capas);
-  graficaApilada($(".viz", tarjeta), f, capas, valores, {
-    alto: 250,
-    formato: fmtH,
-    formatoTotal: fmtH,
-    formatoEjeY: (v) => fnum(v, 0) + " h",
-  });
+  if (capas.length > 1) {
+    graficaConSelector(tarjeta, f, capas, valores, {
+      alto: 250,
+      formato: fmtH,
+      formatoTotal: fmtH,
+      formatoEjeY: (v, max) => (max >= 2.5 ? fnum(v, 0) + " h" : fnum(v * 60, 0) + " min"),
+    });
+  } else {
+    graficaAgrupada($(".viz", tarjeta), f, capas, valores, {
+      alto: 250,
+      formato: fmtH,
+      formatoEjeY: (v, max) => (max >= 2.5 ? fnum(v, 0) + " h" : fnum(v * 60, 0) + " min"),
+      tendencia: true,
+    });
+  }
   botonTabla(
     tarjeta,
     ["Noche", ...capas.map((c) => c.nombre), "Total"],
@@ -1072,8 +1202,7 @@ function renderEntrenos(fechas) {
   const valores = semanasF.map((s) => grupos.get(s) || null);
 
   const tarjeta = $("#c-entrenos");
-  leyenda(tarjeta, capas);
-  graficaApilada($(".viz", tarjeta), semanasF, capas, valores, {
+  graficaConSelector(tarjeta, semanasF, capas, valores, {
     alto: 240,
     formato: (v) => fnum(v) + " min",
     formatoTotal: (v) => fnum(v) + " min",
@@ -1097,14 +1226,140 @@ function renderEntrenos(fechas) {
       e.energia ? fnum(e.energia) + " kcal" : "–",
       e.dist ? fnum(e.dist, 2) + " km" : "–",
       e.fc ? fnum(e.fc) + " ppm" : "–",
+      e.perfil && e.perfil !== "sinPulso" ? NOMBRE_PERFIL[e.perfil] : "–",
     ];
     for (const c of celdas) {
       const td = document.createElement("td");
       td.textContent = c;
       tr.appendChild(td);
     }
+    const tdCurva = document.createElement("td");
+    const curva = curvaEntreno(e);
+    if (curva) tdCurva.appendChild(curva);
+    else tdCurva.textContent = "–";
+    tr.appendChild(tdCurva);
     cuerpo.appendChild(tr);
   }
+}
+
+// ---------- continuo o por intervalos ----------
+// Dos entrenos del mismo tipo y la misma duración pueden buscar cosas
+// distintas: uno sostiene el pulso (base aeróbica) y otro lo sube y lo baja
+// (capacidad máxima). La app lo separa mirando la curva de pulso de cada
+// sesión, no el nombre de la actividad.
+const PERFILES = [
+  { clave: "continuoSuave", nombre: "Cardio continuo suave", color: "var(--s1)" },
+  { clave: "continuoFuerte", nombre: "Cardio continuo fuerte", color: "var(--s4)" },
+  { clave: "intervalos", nombre: "Cardio por intervalos", color: "var(--s2)" },
+  { clave: "musculacion", nombre: "Musculación", color: "var(--s3)" },
+  { clave: "movilidad", nombre: "Movilidad", color: "var(--s5)" },
+  { clave: "sinPulso", nombre: "Sin datos de pulso", color: "var(--otros)" },
+];
+const NOMBRE_PERFIL = Object.fromEntries(PERFILES.map((p) => [p.clave, p.nombre]));
+
+function entrenosDelRango() {
+  return DATOS.entrenos.filter((e) => e.fecha >= RANGO.ini && e.fecha <= RANGO.fin);
+}
+
+// Minutos por semana de cada perfil dentro del rango elegido.
+function minutosPorPerfil(fechas) {
+  const semanas = Math.max(1, fechas.length / 7);
+  const min = { continuoSuave: 0, continuoFuerte: 0, intervalos: 0, musculacion: 0, movilidad: 0, sinPulso: 0 };
+  for (const e of entrenosDelRango()) min[e.perfil || "sinPulso"] += e.dur;
+  const porSemana = {};
+  for (const k of Object.keys(min)) porSemana[k] = min[k] / semanas;
+  return { total: min, porSemana, semanas };
+}
+
+function renderPerfilEntrenos(fechas) {
+  const tarjeta = $("#c-perfil-entrenos");
+  const lista = entrenosDelRango();
+  const conPerfil = lista.filter((e) => e.perfil && e.perfil !== "sinPulso");
+  const cardio = lista.filter((e) => ["continuoSuave", "continuoFuerte", "intervalos"].includes(e.perfil));
+  tarjeta.hidden = !lista.length;
+  if (!lista.length) return;
+
+  const sub = $(".sub-tarjeta", tarjeta);
+  if (!conPerfil.length) {
+    sub.textContent = "Tus entrenamientos no traen registro de pulso, así que no se puede saber si fueron continuos o por intervalos.";
+    $(".viz", tarjeta).replaceChildren();
+    $("#lectura-perfil").textContent = "";
+    return;
+  }
+  const fcRef = DATOS.meta.fcMaxRef;
+  sub.textContent =
+    "Se mira la curva de pulso de cada sesión de cardio: si sube y baja varias veces, es de intervalos; si se mantiene, es continua. La musculación y la movilidad van aparte, porque su pulso sube y baja entre series y no significa lo mismo." +
+    (fcRef ? ` Tu pulso máximo de referencia, el más alto que repites de verdad, es ${fnum(fcRef)} ppm.` : "");
+
+  const { porSemana } = minutosPorPerfil(fechas);
+
+  // Semanas del rango, apiladas por perfil.
+  const grupos = new Map();
+  for (const e of lista) {
+    const d = new Date(e.fecha + "T12:00:00Z");
+    const lunes = sumaDias(e.fecha, -((d.getUTCDay() + 6) % 7));
+    if (!grupos.has(lunes)) grupos.set(lunes, {});
+    const g = grupos.get(lunes);
+    const clave = e.perfil || "sinPulso";
+    g[clave] = (g[clave] || 0) + e.dur;
+  }
+  const d0 = new Date(RANGO.ini + "T12:00:00Z");
+  const primerLunes = sumaDias(RANGO.ini, -((d0.getUTCDay() + 6) % 7));
+  const semanasF = [];
+  for (let s = primerLunes; s <= RANGO.fin; s = sumaDias(s, 7)) semanasF.push(s);
+  const valores = semanasF.map((s) => grupos.get(s) || null);
+  const capas = PERFILES.filter((p) => valores.some((v) => v && v[p.clave]));
+
+  graficaConSelector(tarjeta, semanasF, capas, valores, {
+    alto: 220,
+    formato: (v) => fnum(v) + " min",
+    formatoTotal: (v) => fnum(v) + " min",
+    etiquetaX: (s) => "Semana del " + ffechaLarga(s),
+  });
+  botonTabla(
+    tarjeta,
+    ["Semana", ...capas.map((c) => c.nombre)],
+    semanasF.map((s, i) => ["Semana del " + ffechaLarga(s), ...capas.map((c) => (valores[i] && valores[i][c.clave] ? fnum(valores[i][c.clave]) + " min" : null))])
+  );
+
+  const susurro = [];
+  if (porSemana.continuoSuave >= 1) susurro.push(`${fnum(porSemana.continuoSuave)} min continuos suaves`);
+  if (porSemana.continuoFuerte >= 1) susurro.push(`${fnum(porSemana.continuoFuerte)} min continuos fuertes`);
+  if (porSemana.intervalos >= 1) susurro.push(`${fnum(porSemana.intervalos)} min de intervalos`);
+  const aparte = [];
+  if (porSemana.musculacion >= 1) aparte.push(`${fnum(porSemana.musculacion)} min de musculación`);
+  if (porSemana.movilidad >= 1) aparte.push(`${fnum(porSemana.movilidad)} min de movilidad`);
+
+  const frases = [];
+  if (susurro.length) {
+    frases.push(`De cardio haces a la semana ${susurro.join(", ")}.`);
+    frases.push("El continuo suave construye la base que te deja entrenar más; los intervalos son los que suben el techo de tu capacidad aeróbica.");
+  } else if (cardio.length) {
+    frases.push("Tus sesiones de cardio no traen suficiente pulso para saber cómo fueron.");
+  }
+  if (aparte.length) frases.push(`Aparte del cardio, sumas ${aparte.join(" y ")} a la semana.`);
+  $("#lectura-perfil").textContent = frases.join(" ");
+}
+
+// Dibuja la curva de pulso de una sesión en miniatura.
+function curvaEntreno(e) {
+  if (!e.curva || e.curva.length < 4) return null;
+  const w = 96,
+    h = 28;
+  const min = Math.min(...e.curva),
+    max = Math.max(...e.curva);
+  const X = (i) => 2 + (i / (e.curva.length - 1)) * (w - 4);
+  const Y = (v) => 2 + (h - 4) * (1 - (v - min) / (max - min || 1));
+  let d = "";
+  e.curva.forEach((v, i) => (d += (i ? "L" : "M") + X(i).toFixed(1) + "," + Y(v).toFixed(1)));
+  const svg = el("svg", { viewBox: `0 0 ${w} ${h}`, width: w, height: h, class: "spark", role: "img" });
+  const titulo = el("title", {});
+  titulo.textContent = `Pulso entre ${e.fcMin} y ${e.fcMax} ppm`;
+  svg.appendChild(titulo);
+  const linea = el("path", { d, class: "spark-linea" });
+  if (e.perfil === "intervalos") linea.style.stroke = "var(--s2)";
+  svg.appendChild(linea);
+  return svg;
 }
 
 // ---------- peso ----------
@@ -1903,6 +2158,49 @@ function motorPlan(fechas) {
         hacer: "No hace falta más volumen: sube la carga poco a poco manteniendo estas dos o tres sesiones.",
         porque: "El beneficio se concentra entre 30 y 60 minutos semanales; a partir de ahí la curva se aplana.",
         fuentes: ["fuerza"],
+      });
+    }
+  }
+
+  // --- 3b. La mezcla del cardio: base suave frente a intervalos ------------
+  const mezcla = minutosPorPerfil(fechas);
+  const suaveSem = mezcla.porSemana.continuoSuave;
+  const intSem = mezcla.porSemana.intervalos;
+  const cardioSem = suaveSem + intSem + mezcla.porSemana.continuoFuerte;
+  const clasificado = cardioSem > 0 && mezcla.porSemana.sinPulso < cardioSem;
+  if (clasificado && cardioSem >= 20) {
+    if (intSem < 8) {
+      P.push({
+        dominio: "Corazón y forma física",
+        estado: "accion",
+        prioridad: 93,
+        titulo: "Todo tu cardio es continuo: te falta el estímulo que sube el techo",
+        dato: `De tus ${fnum(cardioSem)} minutos de cardio a la semana, ${intSem < 1 ? "ninguno es" : fnum(intSem) + " son"} de intervalos: el pulso se mantiene, no sube y baja.`,
+        hacer: "Cambia una sesión continua por una de series: calienta 10 minutos y haz 4 bloques de 4 minutos fuertes (solo puedes decir dos o tres palabras) con 3 minutos suaves entre ellos. Una a la semana es suficiente.",
+        porque: "El trabajo continuo suave construye la base, pero el techo de tu capacidad aeróbica solo sube cuando te acercas a tu pulso máximo, y esa capacidad es lo que más se asocia a vivir más años.",
+        fuentes: ["vo2", "attia"],
+      });
+    } else if (suaveSem < 90) {
+      P.push({
+        dominio: "Corazón y forma física",
+        estado: "accion",
+        prioridad: 84,
+        titulo: "Entrenas fuerte, pero te falta base tranquila",
+        dato: `Haces ${fnum(intSem)} minutos de intervalos a la semana y solo ${fnum(suaveSem)} de cardio suave.`,
+        hacer: "Añade dos salidas de 45 minutos a ritmo conversable, en el que puedas hablar frases enteras sin ahogarte. Aunque te parezca poco esfuerzo, esa es la parte que hay que hacer larga.",
+        porque: "La base aeróbica es lo que te permite recuperarte entre sesiones duras y sostener el volumen; sin ella, las series se convierten en desgaste en vez de mejora.",
+        fuentes: ["attia", "oms"],
+      });
+    } else {
+      P.push({
+        dominio: "Corazón y forma física",
+        estado: "ok",
+        prioridad: 63,
+        titulo: "Tienes la mezcla de cardio bien repartida",
+        dato: `${fnum(suaveSem)} minutos suaves y ${fnum(intSem)} de intervalos a la semana.`,
+        hacer: "Mantenlo: la mayor parte del tiempo en suave y una o dos sesiones duras a la semana.",
+        porque: "Es el reparto con el que se construyen a la vez la base y el techo de la capacidad aeróbica.",
+        fuentes: ["attia", "vo2"],
       });
     }
   }
