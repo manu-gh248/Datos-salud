@@ -106,6 +106,8 @@ let series; // clave tipo → { dias: Map(fecha → acumulado) }
 let sueno; // Map(nocheFecha → Map(fuente → fases))
 let entrenos;
 let meds; // nombre → Map(fecha → tomas)
+let pulso; // casilla de 30 s → [min, max, suma, n] (se descarta al terminar)
+let pulsoRecortado; // true si el export traía tanto pulso que hubo que cortar
 let inventarioTipos; // type= de cada <Record> → cuántos
 let inventarioElementos; // elementos del XML que no son Record/Workout/Me → cuántos
 let fuentes;
@@ -118,6 +120,8 @@ function reinicia() {
   sueno = new Map();
   entrenos = [];
   meds = new Map();
+  pulso = new Map();
+  pulsoRecortado = false;
   inventarioTipos = new Map();
   inventarioElementos = new Map();
   fuentes = new Map();
@@ -206,6 +210,8 @@ function procesaRecord(tag, cuerpo) {
   anotaFuente(fuente);
   if (fecha < fechaMin) fechaMin = fecha;
   if (fecha > fechaMax) fechaMax = fecha;
+
+  if (tipo === "HKQuantityTypeIdentifierHeartRate") anotaPulso(inicio, v);
 
   let s = series.get(tipo);
   if (!s) {
@@ -388,6 +394,8 @@ function procesaWorkout(apertura, cuerpo) {
     tipo: tipo.replace("HKWorkoutActivityType", ""),
     fecha,
     hora: inicio.slice(11, 16),
+    inicio,
+    fin,
     dur: Math.round(dur * 10) / 10,
     energia: isFinite(energia) ? Math.round(energia) : null,
     dist: isFinite(dist) ? Math.round(dist * 100) / 100 : null,
@@ -484,6 +492,183 @@ function procesaTexto(trozo, final) {
   if (resto.length > 8_000_000) resto = resto.slice(-2_000_000); // válvula de seguridad
 }
 
+// ---------- Perfil de esfuerzo de cada entrenamiento ----------
+// El pulso llega como miles de registros sueltos repartidos por el día. Para
+// saber si una sesión fue continua o por intervalos hay que reconstruir la
+// curva de pulso DENTRO de cada entreno, así que se van guardando los latidos
+// en casillas de 30 segundos (mucho más ligero que guardar cada muestra) y al
+// terminar de leer el archivo se recorta la parte que cae en cada sesión.
+
+const TOPE_CASILLAS = 3_000_000; // válvula de seguridad para exports enormes
+
+// La musculación sube y baja el pulso entre series, así que por la curva
+// parecería cardio por intervalos. No lo es: va en su propia categoría, igual
+// que el trabajo de movilidad.
+const TIPOS_MUSCULACION = ["TraditionalStrengthTraining", "FunctionalStrengthTraining", "CoreTraining"];
+const TIPOS_MOVILIDAD = ["Yoga", "Pilates", "MindAndBody", "Flexibility", "Cooldown", "PreparationAndRecovery", "Barre", "TaiChi"];
+
+// Clave entera y creciente a partir de la hora local: "2026-08-22 07:31:05".
+function casillaDe(s) {
+  if (!s) return NaN;
+  const y = +s.slice(0, 4),
+    mo = +s.slice(5, 7),
+    d = +s.slice(8, 10),
+    h = +s.slice(11, 13),
+    mi = +s.slice(14, 16),
+    se = +s.slice(17, 19);
+  if (!isFinite(y) || !isFinite(mi)) return NaN;
+  return ((((y * 12 + mo) * 32 + d) * 24 + h) * 60 + mi) * 2 + (se >= 30 ? 1 : 0);
+}
+
+function anotaPulso(inicio, valor) {
+  const k = casillaDe(inicio);
+  if (!isFinite(k)) return;
+  const c = pulso.get(k);
+  if (c) {
+    if (valor < c[0]) c[0] = valor;
+    if (valor > c[1]) c[1] = valor;
+    c[2] += valor;
+    c[3]++;
+  } else {
+    if (pulso.size >= TOPE_CASILLAS) {
+      pulsoRecortado = true;
+      return;
+    }
+    pulso.set(k, [valor, valor, valor, 1]);
+  }
+}
+
+// Media móvil corta: quita el ruido latido a latido sin borrar los picos.
+function suaviza(v, n) {
+  const out = [];
+  for (let i = 0; i < v.length; i++) {
+    let s = 0,
+      c = 0;
+    for (let j = Math.max(0, i - n); j <= Math.min(v.length - 1, i + n); j++) {
+      s += v[j];
+      c++;
+    }
+    out.push(s / c);
+  }
+  return out;
+}
+
+function percentil(orden, p) {
+  if (!orden.length) return null;
+  const i = Math.min(orden.length - 1, Math.max(0, Math.round((orden.length - 1) * p)));
+  return orden[i];
+}
+
+// Cuenta subidas y bajadas de verdad: cada vez que el pulso sube por encima
+// de un umbral alto y luego baja por debajo de uno bajo, es una repetición.
+function cuentaOscilaciones(v, alto, bajo) {
+  let n = 0,
+    estado = v[0] >= alto ? "arriba" : "abajo";
+  for (const x of v) {
+    if (estado === "abajo" && x >= alto) {
+      estado = "arriba";
+      n++;
+    } else if (estado === "arriba" && x <= bajo) {
+      estado = "abajo";
+    }
+  }
+  return n;
+}
+
+// Recorta la curva a 40 puntos para poder dibujarla sin engordar el guardado.
+function comprimeCurva(v, n) {
+  if (v.length <= n) return v.map((x) => Math.round(x));
+  const out = [];
+  const tam = v.length / n;
+  for (let i = 0; i < n; i++) {
+    const trozo = v.slice(Math.floor(i * tam), Math.floor((i + 1) * tam));
+    out.push(Math.round(trozo.reduce((a, b) => a + b, 0) / trozo.length));
+  }
+  return out;
+}
+
+// Calcula el perfil de cada entreno con las casillas de pulso ya recogidas.
+function perfilaEntrenos() {
+  for (const e of entrenos) {
+    if (TIPOS_MUSCULACION.includes(e.tipo)) e.perfil = "musculacion";
+    else if (TIPOS_MOVILIDAD.includes(e.tipo)) e.perfil = "movilidad";
+  }
+  if (!pulso.size || !entrenos.length) return null;
+  const claves = [...pulso.keys()].sort((a, b) => a - b);
+
+  // Pulso máximo de referencia: el más alto que se repite de verdad (el
+  // percentil 99,5 de las casillas), no un pico suelto de una lectura mala.
+  const maximos = claves.map((k) => pulso.get(k)[1]).sort((a, b) => a - b);
+  const fcMaxRef = percentil(maximos, 0.995) || 0;
+
+  const busca = (k) => {
+    let lo = 0,
+      hi = claves.length;
+    while (lo < hi) {
+      const m = (lo + hi) >> 1;
+      if (claves[m] < k) lo = m + 1;
+      else hi = m;
+    }
+    return lo;
+  };
+
+  for (const e of entrenos) {
+    const k0 = casillaDe(e.inicio),
+      k1 = casillaDe(e.fin);
+    if (!isFinite(k0) || !isFinite(k1)) continue;
+    const desde = busca(k0),
+      hasta = busca(k1 + 1);
+    const medias = [];
+    let min = Infinity,
+      max = -Infinity;
+    for (let i = desde; i < hasta; i++) {
+      const c = pulso.get(claves[i]);
+      medias.push(c[2] / c[3]);
+      if (c[0] < min) min = c[0];
+      if (c[1] > max) max = c[1];
+    }
+    // Con menos de tres minutos de pulso no se puede afirmar nada.
+    if (medias.length < 6) {
+      e.perfil = TIPOS_MUSCULACION.includes(e.tipo) ? "musculacion" : TIPOS_MOVILIDAD.includes(e.tipo) ? "movilidad" : "sinPulso";
+      continue;
+    }
+
+    const suave = suaviza(medias, 1); // ventana de 90 s
+    const orden = [...suave].sort((a, b) => a - b);
+    const p10 = percentil(orden, 0.1),
+      p90 = percentil(orden, 0.9);
+    const amplitud = p90 - p10;
+    const mediaFC = suave.reduce((a, b) => a + b, 0) / suave.length;
+    // Umbrales sacados de la propia sesión: se cuenta una repetición cuando
+    // el pulso sube a la zona alta de SU rango y luego vuelve a la baja.
+    // Para contar una repetición hace falta un vaivén de verdad (al menos
+    // una docena de pulsaciones), no el temblor normal de un ritmo sostenido.
+    const alto = p10 + Math.max(12, amplitud * 0.6),
+      bajo = p10 + Math.max(6, amplitud * 0.3);
+    const oscilaciones = amplitud >= 15 ? cuentaOscilaciones(suave, alto, bajo) : 0;
+    const pctMax = fcMaxRef ? (mediaFC / fcMaxRef) * 100 : null;
+
+    let perfil;
+    if (TIPOS_MUSCULACION.includes(e.tipo)) perfil = "musculacion";
+    else if (TIPOS_MOVILIDAD.includes(e.tipo)) perfil = "movilidad";
+    else if (oscilaciones >= 3 && amplitud >= 15) perfil = "intervalos";
+    else if (e.tipo === "HighIntensityIntervalTraining" && amplitud >= 12) perfil = "intervalos";
+    else if (amplitud >= 25 && oscilaciones >= 2) perfil = "intervalos";
+    else if (pctMax != null && pctMax >= 78) perfil = "continuoFuerte";
+    else perfil = "continuoSuave";
+
+    e.perfil = perfil;
+    e.fcMin = Math.round(min);
+    e.fcMax = Math.round(max);
+    e.fcAmplitud = Math.round(amplitud);
+    e.oscilaciones = oscilaciones;
+    e.pctMax = pctMax != null ? Math.round(pctMax) : null;
+    e.curva = comprimeCurva(suave, 40);
+    if (!e.fc) e.fc = Math.round(mediaFC);
+  }
+  return { fcMaxRef: Math.round(fcMaxRef), recortado: pulsoRecortado };
+}
+
 // ---------- Resultado ----------
 function resultado() {
   const seriesOut = {};
@@ -547,6 +732,8 @@ function resultado() {
     };
   }
 
+  const pulsoInfo = perfilaEntrenos();
+  pulso = new Map(); // ya no hace falta: fuera de memoria
   entrenos.sort((a, b) => (a.fecha + a.hora < b.fecha + b.hora ? -1 : 1));
 
   // Medicación: se guarda todo lo anotado; ya avisa la tarjeta cuando hay
@@ -567,6 +754,8 @@ function resultado() {
       fechaMax: fechaMax === "0000" ? null : fechaMax,
       nRegistros,
       fuentes: [...fuentes.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]),
+      fcMaxRef: pulsoInfo ? pulsoInfo.fcMaxRef : null,
+      pulsoRecortado: pulsoInfo ? pulsoInfo.recortado : false,
       inventario: {
         tipos: [...inventarioTipos.entries()].sort((a, b) => b[1] - a[1]),
         elementos: [...inventarioElementos.entries()].sort((a, b) => b[1] - a[1]),

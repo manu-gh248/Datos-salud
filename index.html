@@ -198,6 +198,7 @@ footer { border-top: 1px solid var(--borde-2); padding: 26px 0 40px; color: var(
 .cruce-controles { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
 .cruce-controles label { font-size: 12px; font-weight: 700; color: var(--ceniza); }
 #lectura-dispersion { color: var(--ceniza); font-size: 13px; margin-top: 10px; }
+#lectura-perfil { color: var(--tinta-2); font-size: 13.5px; margin-top: 12px; }
 
 #lista-consejos { margin-top: 14px; }
 .plan-lista { display: grid; gap: 12px; }
@@ -537,6 +538,18 @@ footer { border-top: 1px solid var(--borde-2); padding: 26px 0 40px; color: var(
           <p>Piensa en dosis, como con un medicamento: 150 minutos semanales es donde empieza el efecto (umbral OMS) y hasta ~300 sigue creciendo. Y mira la mezcla de colores: el cardio cuida el motor, pero a partir de los 40 la fuerza es la que protege el chasis — músculo y hueso. Si una sola actividad domina la torre, la mejora más rentable no suele ser más de lo mismo, sino lo que falta.</p>
         </details>
       </div>
+      <div class="tarjeta" id="c-perfil-entrenos" hidden>
+        <div class="cab-tarjeta"><div>
+          <h3>Continuo o por intervalos</h3>
+          <p class="sub-tarjeta"></p>
+        </div></div>
+        <div class="viz"></div>
+        <p id="lectura-perfil"></p>
+        <details class="explica">
+          <summary>¿Qué me dice esto?</summary>
+          <p>No es lo mismo salir 45 minutos a ritmo cómodo que hacer series. El continuo suave, con el pulso sostenido y pudiendo hablar, construye la base: más mitocondrias, más capacidad de aguantar y mejor recuperación entre sesiones duras. Los intervalos, subiendo y bajando el pulso, son los que empujan el techo, tu VO₂ máx, que es la medida que más se asocia a vivir más años. Se necesitan los dos, y en proporciones muy distintas: la mayor parte del tiempo en suave y una o dos sesiones duras a la semana.</p>
+        </details>
+      </div>
       <div class="tarjeta">
         <div class="cab-tarjeta"><div>
           <h3>Últimos entrenamientos</h3>
@@ -544,7 +557,7 @@ footer { border-top: 1px solid var(--borde-2); padding: 26px 0 40px; color: var(
         </div></div>
         <div class="tabla-entrenos">
           <table id="tabla-entrenos">
-            <thead><tr><th>Cuándo</th><th>Actividad</th><th>Duración</th><th>Energía</th><th>Distancia</th><th>FC media</th></tr></thead>
+            <thead><tr><th>Cuándo</th><th>Actividad</th><th>Duración</th><th>Energía</th><th>Distancia</th><th>FC media</th><th>Perfil</th><th>Pulso en la sesión</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
