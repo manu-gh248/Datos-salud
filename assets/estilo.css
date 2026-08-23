@@ -1,6 +1,6 @@
 /* ============================================================
-   Web de venta del Test LeMent — sistema editorial LIDERAPIA
-   Tokens del Liderapia Design System (colors_and_type.css):
+   Hoja de estilo base de la app de datos de salud.
+   Tokens tipográficos y de color heredados de un sistema previo:
    papel/negro/blanco, rojo Power Skills, amarillo Mindset,
    Poppins pesos fuertes, radios mínimos, sombra de póster.
    ============================================================ */
@@ -35,7 +35,6 @@
   --radio: 18px;             /* tarjetas */
   --radio-sm: 12px;          /* inputs y botones cuadrados */
   --termica: linear-gradient(90deg, #00855A, #FFC20E 45%, #E0531E 75%, #E23526);
-  --logo-filtro: brightness(0); /* el lockup es blanco: en claro se pinta negro */
   /* Marca de "esto es una compra de equipo": el icono del contador y el tick
      de la sesión grupal. En claro va el verde, que sobre papel se lee bien;
      en oscuro, el amarillo Mindset. */
@@ -53,7 +52,6 @@
   --linea-fuerte: #F2EEE7;
   --sombra-suave: 0 6px 24px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
   --sombra-suave-2: 0 16px 44px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .45);
-  --logo-filtro: none;
   --icono-equipo: var(--amarillo);
 }
 
@@ -109,10 +107,9 @@ a:hover { color: var(--rojo-hover); }
 /* ---------- nav ---------- */
 nav { border-bottom: 1px solid var(--borde-2); background: var(--papel); }
 nav .contenedor { display: flex; align-items: center; justify-content: space-between; padding-top: 18px; padding-bottom: 18px; }
-.wordmark { display: flex; align-items: center; }
+.wordmark { display: flex; align-items: center; font-weight: 900; font-size: 15px; letter-spacing: -0.01em; }
 nav .acciones-nav { display: flex; align-items: center; gap: 12px; }
 /* El lockup es blanco: en la barra clara se pinta en negro con un filtro. */
-.logo-nav { height: 34px; filter: var(--logo-filtro); }
 nav .pill { padding: 12px 24px; font-size: 12px; white-space: nowrap; }
 #tema {
   width: 42px; height: 42px; flex: 0 0 42px; border-radius: 50%; border: 2px solid var(--linea-fuerte);
@@ -577,7 +574,6 @@ footer .legales { width: 100%; text-align: center; }
 @media (max-width: 720px) {
   nav .contenedor { padding-left: 18px; padding-right: 18px; gap: 14px; }
   nav .acciones-nav { gap: 8px; }
-  .logo-nav { height: 26px; }
   #region { height: 36px; padding: 0 12px; font-size: 11px; }
   #tema { width: 36px; height: 36px; flex: 0 0 36px; }
   #tema svg { width: 15px; height: 15px; }
