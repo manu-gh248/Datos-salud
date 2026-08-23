@@ -50,3 +50,7 @@ cuando falta algo (la medicación, sin ir más lejos).
 Publicada en Netlify (proyecto `datos-salud`) con despliegue continuo desde
 este repositorio: cada push a la rama por defecto se publica solo. Sin
 comando de build, directorio raíz.
+
+## Autoría
+
+Software ideado por Manuel Crespo y desarrollado junto a Claude Code.

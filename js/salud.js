@@ -1,3 +1,8 @@
+// ===========================================================================
+// Tu salud, en claro
+// Software ideado por Manuel Crespo y desarrollado junto a Claude Code.
+// Herramienta personal: los datos de salud no salen nunca del navegador.
+// ===========================================================================
 // Aplicación de análisis de Apple Salud. Todo se calcula y se pinta en el
 // navegador a partir de los agregados que devuelve js/salud-worker.js; nada
 // sale del dispositivo. Las gráficas son SVG a mano: barras finas con punta
@@ -182,6 +187,8 @@ function graficaBarras(cont, fechas, valores, ops) {
   const base = Y(ey.min);
 
   const media7 = ops.media7 ? mediaMovil(valores, 7) : null;
+  // Media del periodo: sirve de listón para leer cada día de un vistazo.
+  const mediaPeriodo = ops.lineaMedia ? media(valores) : null;
 
   valores.forEach((v, i) => {
     if (v == null) return;
@@ -198,8 +205,20 @@ function graficaBarras(cont, fechas, valores, ops) {
     }
     barra.setAttribute("class", "viz-barra");
     barra.style.fill = ops.color || "var(--s1)";
+    // Por debajo de la media el día se pinta apagado: el contraste hace que
+    // las rachas buenas y malas salten a la vista sin cambiar de color.
+    if (mediaPeriodo != null && v < mediaPeriodo) barra.style.opacity = ".38";
     svg.appendChild(barra);
   });
+
+  if (mediaPeriodo != null) {
+    const y = Y(mediaPeriodo);
+    const linea = el("line", { x1: MARGEN.izq, x2: ancho - MARGEN.der, y1: y, y2: y, class: "viz-media" });
+    svg.appendChild(linea);
+    const et = el("text", { x: ancho - MARGEN.der, y: y - 5, class: "viz-etiqueta", "text-anchor": "end" });
+    et.textContent = "media: " + (ops.formato ? ops.formato(mediaPeriodo) : fnum(mediaPeriodo));
+    svg.appendChild(et);
+  }
 
   if (media7) {
     svg.appendChild(trazaLinea(media7, X, Y, "var(--s1-linea)"));
@@ -743,9 +762,11 @@ function arrancaApp() {
   $("#app").hidden = false;
 
   const meta = DATOS.meta;
+  const nombres = (meta.fuentes || []).map(nombreFuente);
+  const masDe3 = nombres.length > 3 ? ` y ${fnum(nombres.length - 3)} más` : "";
   $("#resumen-datos").textContent =
     `${fnum(meta.nRegistros)} registros · del ${ffechaLarga(meta.fechaMin)} al ${ffechaLarga(meta.fechaMax)}` +
-    (meta.fuentes.length ? ` · ${meta.fuentes.slice(0, 3).join(", ")}` : "");
+    (nombres.length ? ` · ${nombres.slice(0, 3).join(", ")}${masDe3}` : "");
 
   renderInventario();
   aplicaPreset(RANGO.dias || 90);
@@ -2910,6 +2931,26 @@ const METRICAS_PANORAMA = [
   { clave: "dormidoH", nombre: "Sueño", unidad: "", formato: (v) => fdur(v * 3600) },
 ];
 
+// La vista de pájaro del periodo. Nació como calendario de calor, pero un
+// mapa de colores enseña rachas y esconde justo lo que más se pregunta uno:
+// ¿voy a más o a menos? Por eso ahora manda la evolución, y el calendario
+// queda como segunda vista para quien quiera mirar rachas y días de la semana.
+function rachaSobreMedia(valores, m) {
+  let mejor = 0,
+    actual = 0,
+    finMejor = -1;
+  valores.forEach((v, i) => {
+    if (v != null && v >= m) {
+      actual++;
+      if (actual > mejor) {
+        mejor = actual;
+        finMejor = i;
+      }
+    } else actual = 0;
+  });
+  return { dias: mejor, fin: finMejor };
+}
+
 function renderPanorama(fechas) {
   const tarjeta = $("#c-panorama");
   const sel = $("#sel-panorama");
@@ -2928,8 +2969,69 @@ function renderPanorama(fechas) {
   const hay = valores.some((v) => v != null);
   tarjeta.hidden = !hay;
   if (!hay) return;
-  $(".sub-tarjeta", tarjeta).textContent = `Cada celda es un día; cuanto más oscura, más ${met.nombre.toLowerCase()}. Pasa el cursor para ver el detalle.`;
-  graficaCalendario($(".viz", tarjeta), fechas, valores, met);
+
+  const vista = tarjeta.dataset.vista === "calendario" ? "calendario" : "evolucion";
+  const vistas = [
+    { clave: "evolucion", nombre: "Evolución" },
+    { clave: "calendario", nombre: "Calendario" },
+  ];
+  let ley = $(".viz-leyenda", tarjeta);
+  if (!ley) {
+    ley = document.createElement("div");
+    ley.className = "viz-leyenda";
+    $(".cab-tarjeta", tarjeta).after(ley);
+  }
+  ley.replaceChildren();
+  for (const v of vistas) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "viz-leyenda-item chip-filtro chip-vista" + (v.clave === vista ? " activo" : "");
+    b.setAttribute("aria-pressed", String(v.clave === vista));
+    b.textContent = v.nombre;
+    b.addEventListener("click", () => {
+      tarjeta.dataset.vista = v.clave;
+      renderPanorama(fechasDelRango());
+    });
+    ley.appendChild(b);
+  }
+
+  const lectura = $("#lectura-panorama");
+  if (vista === "calendario") {
+    lectura.textContent = "";
+    $(".sub-tarjeta", tarjeta).textContent = `Cada celda es un día; cuanto más fuerte el color, más ${met.nombre.toLowerCase()}. Pasa el cursor para ver el detalle.`;
+    graficaCalendario($(".viz", tarjeta), fechas, valores, met);
+  } else {
+    $(".sub-tarjeta", tarjeta).textContent = `Cada barra es un día de ${met.nombre.toLowerCase()}. Los días por debajo de tu media salen apagados y la línea es la media móvil de 7 días, que es donde se ve la tendencia.`;
+    graficaBarras($(".viz", tarjeta), fechas, valores, {
+      alto: 250,
+      media7: true,
+      lineaMedia: true,
+      formato: met.formato,
+      unidad: met.unidad,
+    });
+
+    // Lectura en una frase: cómo termina el periodo comparado con cómo empezó.
+    const mitad = Math.floor(valores.length / 2);
+    const m1 = media(valores.slice(0, mitad)),
+      m2 = media(valores.slice(mitad));
+    const m = media(valores);
+    const frases = [];
+    if (m1 != null && m2 != null && m1 > 0) {
+      const dif = ((m2 - m1) / m1) * 100;
+      const dirección = Math.abs(dif) < 3 ? "igual" : dif > 0 ? "más" : "menos";
+      frases.push(
+        dirección === "igual"
+          ? `La segunda mitad del periodo va prácticamente igual que la primera (${met.formato(m2)} frente a ${met.formato(m1)}).`
+          : `En la segunda mitad del periodo vas a ${dirección}: ${met.formato(m2)} de media frente a ${met.formato(m1)} de la primera mitad, un ${fnum(Math.abs(dif))} % ${dif > 0 ? "más" : "menos"}.`
+      );
+    }
+    if (m != null) {
+      const r = rachaSobreMedia(valores, m);
+      if (r.dias >= 3) frases.push(`Tu mejor racha por encima de la media fueron ${fnum(r.dias)} días seguidos, hasta el ${ffechaLarga(fechas[r.fin])}.`);
+    }
+    lectura.textContent = frases.join(" ");
+  }
+
   botonTabla(tarjeta, ["Fecha", met.nombre], fechas.map((f, i) => [ffechaLarga(f), valores[i] != null ? met.formato(valores[i]) : null]).filter((r) => r[1] != null));
 }
 
@@ -3288,6 +3390,12 @@ function tablaInventario(filas, cabeceras) {
   return tabla;
 }
 
+// Los aparatos llegan como [nombre, nº de registros]; en datos guardados por
+// una versión anterior venían solo como texto.
+function nombreFuente(f) {
+  return Array.isArray(f) ? f[0] : f;
+}
+
 function renderInventario() {
   const sec = $("#s-inventario");
   const cont = $("#lista-inventario");
@@ -3316,6 +3424,32 @@ function renderInventario() {
       ["Tipo de dato", "Registros", "¿La app lo usa?"]
     )
   );
+
+  // Aparatos: todos, con lo que ha aportado cada uno.
+  const fuentes = (DATOS.meta.fuentes || []).filter((f) => Array.isArray(f));
+  if (fuentes.length) {
+    const h = document.createElement("p");
+    h.className = "sub-tarjeta";
+    h.style.marginTop = "16px";
+    h.textContent = `Los ${fnum(fuentes.length)} aparatos y apps que han escrito en tu Salud:`;
+    cont.appendChild(h);
+    cont.appendChild(tablaInventario(fuentes.map(([n, c]) => [n, fnum(c)]), ["Aparato o app", "Registros"]));
+  }
+
+  // Lo que se ha dejado fuera y por qué.
+  const d = DATOS.meta.descartadas;
+  const avisos = [];
+  const plural = (n) => (n === 1 ? "registro" : "registros");
+  if (d && d.futuro) avisos.push(`${fnum(d.futuro)} ${plural(d.futuro)} con fecha futura (algún aparato con la hora mal puesta): se descartan para que el periodo no se estire hasta un año que aún no ha llegado.`);
+  if (d && d.antiguas) avisos.push(`${fnum(d.antiguas)} ${plural(d.antiguas)} con fecha anterior a 2007, imposible en un iPhone: fuera también.`);
+  if (DATOS.meta.pulsoRecortado) avisos.push("Tu archivo trae tanto pulso que se ha analizado solo una parte para clasificar los entrenamientos; el resto de la app usa todo.");
+  for (const a of avisos) {
+    const p = document.createElement("p");
+    p.className = "sub-tarjeta";
+    p.style.marginTop = "10px";
+    p.textContent = "⚠ " + a;
+    cont.appendChild(p);
+  }
 
   if (inv.elementos.length) {
     const h = document.createElement("p");

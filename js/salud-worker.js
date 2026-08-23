@@ -1,3 +1,8 @@
+// ===========================================================================
+// Tu salud, en claro
+// Software ideado por Manuel Crespo y desarrollado junto a Claude Code.
+// Herramienta personal: los datos de salud no salen nunca del navegador.
+// ===========================================================================
 // Worker de análisis del export de Apple Salud. Recibe el archivo (export.zip
 // o export.xml), lo lee en streaming y devuelve agregados diarios. Todo ocurre
 // en el navegador: ningún dato sale del dispositivo.
@@ -113,6 +118,8 @@ let inventarioElementos; // elementos del XML que no son Record/Workout/Me → c
 let fuentes;
 let nRegistros;
 let fechaMin, fechaMax;
+let hoy; // tope: nada puede haber pasado todavía en el futuro
+let descartadasFuturo, descartadasAntiguas;
 
 function reinicia() {
   perfil = {};
@@ -128,6 +135,10 @@ function reinicia() {
   nRegistros = 0;
   fechaMin = "9999";
   fechaMax = "0000";
+  const d = new Date();
+  hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  descartadasFuturo = 0;
+  descartadasAntiguas = 0;
 }
 
 // Extrae el valor de un atributo del texto de una etiqueta. Mucho más rápido
@@ -154,6 +165,21 @@ function desescapa(t) {
 // "2026-03-01 07:45:12 +0100" → fecha local del aparato tal y como se anotó.
 function fechaDe(s) {
   return s ? s.slice(0, 10) : null;
+}
+// Algún aparato con la hora mal puesta cuela registros con fecha futura (o de
+// los años 70). Se descartan: si no, estiran el periodo y dejan la app
+// diciendo que tienes datos hasta 2028.
+function fechaCreible(f) {
+  if (!f) return false;
+  if (f > hoy) {
+    descartadasFuturo++;
+    return false;
+  }
+  if (f < "2007-01-01") {
+    descartadasAntiguas++;
+    return false;
+  }
+  return true;
 }
 function horaDe(s) {
   return s ? +s.slice(11, 13) : 0;
@@ -200,7 +226,7 @@ function procesaRecord(tag, cuerpo) {
   if (!isFinite(bruto)) return;
   const inicio = atributo(tag, "startDate");
   const fecha = fechaDe(inicio);
-  if (!fecha) return;
+  if (!fechaCreible(fecha)) return;
 
   const def = TIPOS[tipo];
   let { v, u } = normaliza(bruto, atributo(tag, "unit"), def);
@@ -248,6 +274,7 @@ function procesaSueno(tag) {
   // La noche se etiqueta con el día en que uno se despierta: lo que empieza
   // después de mediodía cuenta para el día siguiente.
   const noche = horaDe(inicio) >= 12 ? diaSiguiente(fecha) : fecha;
+  if (!fechaCreible(noche)) return;
   const fuente = atributo(tag, "sourceName") || "?";
   anotaFuente(fuente);
   if (noche < fechaMin) fechaMin = noche;
@@ -276,7 +303,7 @@ function procesaSueno(tag) {
 function procesaMedicacion(tag, cuerpo) {
   const inicio = atributo(tag, "startDate");
   const fecha = fechaDe(inicio);
-  if (!fecha) return;
+  if (!fechaCreible(fecha)) return;
   let nombre = null;
   let omitida = false;
   for (const clave of ["medicationName", "name", "displayName", "nombre", "HKMedicationName", "value"]) {
@@ -388,6 +415,7 @@ function procesaWorkout(apertura, cuerpo) {
   }
 
   const fecha = fechaDe(inicio);
+  if (!fechaCreible(fecha)) return;
   if (fecha < fechaMin) fechaMin = fecha;
   if (fecha > fechaMax) fechaMax = fecha;
   entrenos.push({
@@ -753,7 +781,8 @@ function resultado() {
       fechaMin: fechaMin === "9999" ? null : fechaMin,
       fechaMax: fechaMax === "0000" ? null : fechaMax,
       nRegistros,
-      fuentes: [...fuentes.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]),
+      fuentes: [...fuentes.entries()].sort((a, b) => b[1] - a[1]),
+      descartadas: { futuro: descartadasFuturo, antiguas: descartadasAntiguas },
       fcMaxRef: pulsoInfo ? pulsoInfo.fcMaxRef : null,
       pulsoRecortado: pulsoInfo ? pulsoInfo.recortado : false,
       inventario: {
