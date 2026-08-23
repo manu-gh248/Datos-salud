@@ -106,6 +106,8 @@ let series; // clave tipo → { dias: Map(fecha → acumulado) }
 let sueno; // Map(nocheFecha → Map(fuente → fases))
 let entrenos;
 let meds; // nombre → Map(fecha → tomas)
+let inventarioTipos; // type= de cada <Record> → cuántos
+let inventarioElementos; // elementos del XML que no son Record/Workout/Me → cuántos
 let fuentes;
 let nRegistros;
 let fechaMin, fechaMax;
@@ -116,6 +118,8 @@ function reinicia() {
   sueno = new Map();
   entrenos = [];
   meds = new Map();
+  inventarioTipos = new Map();
+  inventarioElementos = new Map();
   fuentes = new Map();
   nRegistros = 0;
   fechaMin = "9999";
@@ -181,6 +185,7 @@ function procesaRecord(tag, cuerpo) {
   const tipo = atributo(tag, "type");
   if (!tipo) return;
   nRegistros++;
+  inventarioTipos.set(tipo, (inventarioTipos.get(tipo) || 0) + 1);
 
   if (tipo === "HKCategoryTypeIdentifierSleepAnalysis") return procesaSueno(tag);
   if (tipo === "HKCategoryTypeIdentifierMindfulSession") return procesaMindful(tag);
@@ -268,6 +273,15 @@ function procesaMedicacion(tag, cuerpo) {
   if (!fecha) return;
   let nombre = null;
   let omitida = false;
+  for (const clave of ["medicationName", "name", "displayName", "nombre", "HKMedicationName", "value"]) {
+    const v = atributo(tag, clave);
+    if (v && !/^HK/.test(v) && !/^\d/.test(v)) {
+      nombre = v;
+      break;
+    }
+  }
+  const estado = atributo(tag, "logStatus") || atributo(tag, "status") || "";
+  if (/skip|omit|notTaken|snooze/i.test(estado)) return;
   if (cuerpo) {
     const re = /<MetadataEntry\s+key="([^"]*)"\s+value="([^"]*)"/g;
     let m;
@@ -431,6 +445,37 @@ function procesaTexto(trozo, final) {
       perfil.sexo = atributo(tag, "HKCharacteristicTypeIdentifierBiologicalSex");
       pos = cierre + 1;
     } else {
+      // Etiqueta cortada por el final del trozo: se deja para el siguiente,
+      // empezando por su "<" (si no, el elemento se perdía entero).
+      if (t.indexOf(">", i) < 0 && !final) {
+        pos = i;
+        break;
+      }
+      const m = /^<([A-Za-z][\w.:-]*)/.exec(t.slice(i, i + 80));
+      if (m) {
+        const nombre = m[1];
+        inventarioElementos.set(nombre, (inventarioElementos.get(nombre) || 0) + 1);
+        // La app de Medicamentos puede exportarse con su propio elemento
+        // (cambia según la versión de iOS): se acepta cualquiera que suene a
+        // medicación en vez de darlo por perdido.
+        if (/medic/i.test(nombre)) {
+          const cierre = t.indexOf(">", i);
+          if (cierre < 0) break;
+          let cuerpo = "";
+          let finElem = cierre + 1;
+          if (t[cierre - 1] !== "/") {
+            const etiquetaFin = "</" + nombre + ">";
+            const fin = t.indexOf(etiquetaFin, cierre);
+            if (fin < 0) break;
+            cuerpo = t.slice(cierre + 1, fin);
+            finElem = fin + etiquetaFin.length;
+          }
+          nRegistros++;
+          procesaMedicacion(t.slice(i, cierre), cuerpo);
+          pos = finElem;
+          continue;
+        }
+      }
       // Elemento que no interesa: saltar al siguiente "<"
       pos = i + 1;
     }
@@ -504,10 +549,10 @@ function resultado() {
 
   entrenos.sort((a, b) => (a.fecha + a.hora < b.fecha + b.hora ? -1 : 1));
 
-  // Medicación: solo lo que se ha tomado al menos 3 días distintos.
+  // Medicación: se guarda todo lo anotado; ya avisa la tarjeta cuando hay
+  // tan pocas tomas que no da para comparar nada.
   const medsOut = {};
   for (const [nombre, porDia] of meds) {
-    if (porDia.size < 3) continue;
     const dias = {};
     for (const [f, n] of porDia) dias[f] = n;
     medsOut[nombre] = { dias, total: [...porDia.values()].reduce((a, b) => a + b, 0) };
@@ -522,6 +567,10 @@ function resultado() {
       fechaMax: fechaMax === "0000" ? null : fechaMax,
       nRegistros,
       fuentes: [...fuentes.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]),
+      inventario: {
+        tipos: [...inventarioTipos.entries()].sort((a, b) => b[1] - a[1]),
+        elementos: [...inventarioElementos.entries()].sort((a, b) => b[1] - a[1]),
+      },
       generado: Date.now(),
     },
     series: seriesOut,

@@ -614,6 +614,7 @@ function arrancaApp() {
     `${fnum(meta.nRegistros)} registros · del ${ffechaLarga(meta.fechaMin)} al ${ffechaLarga(meta.fechaMax)}` +
     (meta.fuentes.length ? ` · ${meta.fuentes.slice(0, 3).join(", ")}` : "");
 
+  renderInventario();
   aplicaPreset(RANGO.dias || 90);
   $$("#filtros .preset").forEach((b) => {
     b.addEventListener("click", () => {
@@ -1681,8 +1682,18 @@ function renderMeds(fechas) {
   lista.replaceChildren();
   const meds = DATOS.meds || {};
   const nombres = Object.keys(meds);
-  tarjeta.hidden = !nombres.length;
-  if (!nombres.length) return;
+  tarjeta.hidden = false;
+  $(".aviso-medico", tarjeta).hidden = !nombres.length;
+  if (!nombres.length) {
+    const p = document.createElement("p");
+    p.className = "sub-tarjeta";
+    const pistas = pistasMedicacion();
+    p.textContent = pistas.length
+      ? `Tu archivo sí trae algo de medicación (${pistas.map((x) => x[0]).join(", ")}) pero sin el nombre de cada toma, así que no se puede analizar. Dímelo y lo miramos.`
+      : "Tu export no trae ninguna toma de medicación. La sección Medicamentos de la app Salud no siempre se incluye al exportar: revisa en «Qué hay dentro de tu archivo», al final de la página, si aparece algo parecido a medicación.";
+    lista.appendChild(p);
+    return;
+  }
 
   const noches = tablaNoches(fechas);
   const dias = tablaDias(fechas);
@@ -2904,6 +2915,102 @@ function renderPlan(fechas) {
     }
     cont.appendChild(ul);
   }
+}
+
+// ===========================================================================
+// Qué hay dentro de tu archivo
+// ===========================================================================
+// Cuando algo no aparece en la app, casi siempre es porque el export no lo
+// trae. Esta tarjeta enseña todo lo que sí venía, usado o no, para poder
+// distinguir "el iPhone no lo exporta" de "la app no lo lee".
+function nombreLegibleTipo(t) {
+  const s = DATOS.series[t];
+  if (s && s.nombre) return s.nombre;
+  return t.replace(/^HK(Quantity|Category|Characteristic)TypeIdentifier/, "").replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+// Tipos que la app entiende aunque no acaben en una gráfica.
+const TIPOS_ESPECIALES = ["HKCategoryTypeIdentifierSleepAnalysis", "HKCategoryTypeIdentifierMindfulSession"];
+
+function usaElTipo(t) {
+  return !!DATOS.series[t] || TIPOS_ESPECIALES.includes(t) || /medic/i.test(t);
+}
+
+function tablaInventario(filas, cabeceras) {
+  const tabla = document.createElement("table");
+  tabla.className = "tabla-inventario";
+  const thead = document.createElement("thead");
+  const trh = document.createElement("tr");
+  for (const c of cabeceras) {
+    const th = document.createElement("th");
+    th.textContent = c;
+    trh.appendChild(th);
+  }
+  thead.appendChild(trh);
+  tabla.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  for (const fila of filas) {
+    const tr = document.createElement("tr");
+    for (const celda of fila) {
+      const td = document.createElement("td");
+      td.textContent = celda;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  tabla.appendChild(tbody);
+  return tabla;
+}
+
+function renderInventario() {
+  const sec = $("#s-inventario");
+  const cont = $("#lista-inventario");
+  cont.replaceChildren();
+  const inv = DATOS.meta && DATOS.meta.inventario;
+  if (!inv) {
+    // Datos guardados por una versión anterior de la app.
+    sec.hidden = false;
+    const p = document.createElement("p");
+    p.className = "sub-tarjeta";
+    p.textContent = "Para ver esto hace falta volver a cargar tu export con esta versión: pulsa «Cargar otro archivo» arriba y suelta otra vez tu export.zip.";
+    cont.appendChild(p);
+    return;
+  }
+  sec.hidden = false;
+
+  const usados = inv.tipos.filter(([t]) => usaElTipo(t)).length;
+  const resumen = document.createElement("p");
+  resumen.className = "sub-tarjeta";
+  resumen.textContent = `Tu archivo trae ${fnum(inv.tipos.length)} tipos de registro distintos y la app usa ${fnum(usados)}. Si echas en falta algo, mira si aparece en esta lista: lo que no está aquí es que el iPhone no lo ha exportado.`;
+  cont.appendChild(resumen);
+
+  cont.appendChild(
+    tablaInventario(
+      inv.tipos.map(([t, n]) => [nombreLegibleTipo(t), fnum(n), usaElTipo(t) ? "sí" : "no"]),
+      ["Tipo de dato", "Registros", "¿La app lo usa?"]
+    )
+  );
+
+  if (inv.elementos.length) {
+    const h = document.createElement("p");
+    h.className = "sub-tarjeta";
+    h.style.marginTop = "16px";
+    h.textContent = "Otras partes del archivo:";
+    cont.appendChild(h);
+    cont.appendChild(
+      tablaInventario(
+        inv.elementos.map(([t, n]) => [t, fnum(n), /medic/i.test(t) ? "sí" : "no"]),
+        ["Elemento", "Veces", "¿La app lo usa?"]
+      )
+    );
+  }
+}
+
+// Pistas de medicación dentro del archivo, para explicar por qué no hay nada.
+function pistasMedicacion() {
+  const inv = DATOS.meta && DATOS.meta.inventario;
+  if (!inv) return [];
+  return [...inv.tipos, ...inv.elementos].filter(([t]) => /medic|pill|dose|farmac/i.test(t));
 }
 
 // ---------- arranque ----------

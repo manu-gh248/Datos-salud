@@ -157,6 +157,12 @@ svg { display: block; }
 }
 .viz-tabla th, .tabla-entrenos th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ceniza); position: sticky; top: 0; background: var(--blanco); }
 .tabla-entrenos { overflow-x: auto; margin-top: 12px; }
+#lista-inventario { margin-top: 14px; }
+.tabla-inventario { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.tabla-inventario th, .tabla-inventario td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--borde); }
+.tabla-inventario th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ceniza); }
+.tabla-inventario td:nth-child(2), .tabla-inventario th:nth-child(2) { text-align: right; }
+#s-inventario summary { cursor: pointer; font-weight: 800; font-size: 14px; }
 
 /* ---------- explorador ---------- */
 #sel-metrica {
@@ -570,6 +576,17 @@ footer { border-top: 1px solid var(--borde-2); padding: 26px 0 40px; color: var(
           <p class="sub-tarjeta"></p>
         </div></div>
         <div class="viz"></div>
+      </div>
+    </section>
+
+    <section id="s-inventario" hidden>
+      <h2>Qué hay dentro de tu archivo</h2>
+      <p class="sub-seccion">Todo lo que tu iPhone ha exportado, lo use la app o no. Sirve para saber si algo falta porque el iPhone no lo exporta o porque la app aún no lo lee.</p>
+      <div class="tarjeta">
+        <details>
+          <summary>Ver el contenido del export</summary>
+          <div id="lista-inventario"></div>
+        </details>
       </div>
     </section>
   </div>
