@@ -1253,17 +1253,19 @@ function renderEntrenos(fechas) {
   const valores = semanasF.map((s) => grupos.get(s) || null);
 
   const tarjeta = $("#c-entrenos");
-  graficaConSelector(tarjeta, semanasF, capas, valores, {
+  const valoresH = valores.map(aHoras);
+  graficaConSelector(tarjeta, semanasF, capas, valoresH, {
     alto: 240,
     conTotal: true,
-    formato: (v) => fnum(v) + " min",
-    formatoTotal: (v) => fnum(v) + " min",
+    formato: fmtTiempo,
+    formatoTotal: fmtTiempo,
+    formatoEjeY: fmtEjeTiempo,
     etiquetaX: (s) => "Semana del " + ffechaLarga(s),
   });
   botonTabla(
     tarjeta,
     ["Semana", ...capas.map((c) => c.nombre)],
-    semanasF.map((s, i) => ["Semana del " + ffechaLarga(s), ...capas.map((c) => (valores[i] && valores[i][c.clave] ? fnum(valores[i][c.clave]) + " min" : null))])
+    semanasF.map((s, i) => ["Semana del " + ffechaLarga(s), ...capas.map((c) => (valoresH[i] && valoresH[i][c.clave] ? fmtTiempo(valoresH[i][c.clave]) : null))])
   );
 
   // Tabla de los últimos entrenamientos.
@@ -1274,7 +1276,7 @@ function renderEntrenos(fechas) {
     const celdas = [
       ffechaLarga(e.fecha) + " " + e.hora,
       nombreEntreno(e.tipo),
-      fnum(e.dur) + " min",
+      fdur(e.dur * 60),
       e.energia ? fnum(e.energia) + " kcal" : "–",
       e.dist ? fnum(e.dist, 2) + " km" : "–",
       e.fc ? fnum(e.fc) + " ppm" : "–",
@@ -1309,6 +1311,26 @@ const PERFILES = [
   { clave: "sinPulso", nombre: "Sin datos de pulso", color: "var(--otros)" },
 ];
 const NOMBRE_PERFIL = Object.fromEntries(PERFILES.map((p) => [p.clave, p.nombre]));
+
+// Los tiempos de entreno se manejan en minutos, pero se PINTAN en horas: así
+// el eje cae en horas enteras y cada valor se lee "2 h 15 m" en vez de
+// "135 min", que cuesta más de asimilar.
+function aHoras(d) {
+  if (!d) return null;
+  const o = {};
+  for (const k of Object.keys(d)) o[k] = d[k] / 60;
+  return o;
+}
+const fmtTiempo = (v) => fdur(v * 3600);
+// El eje puede caer en medias horas: se escriben tal cual ("1 h 30") en vez
+// de redondear, que dejaba dos marcas seguidas diciendo "1 h".
+const fmtEjeTiempo = (v, max) => {
+  if (max < 1) return fnum(v * 60, 0) + " min"; // ni una hora: mejor en minutos
+  const h = Math.floor(v + 1e-9),
+    m = Math.round((v - h) * 60);
+  if (!h) return m ? m + " min" : "0 h";
+  return m ? `${h} h ${m}` : `${h} h`;
+};
 
 function entrenosDelRango() {
   return DATOS.entrenos.filter((e) => e.fecha >= RANGO.ini && e.fecha <= RANGO.fin);
@@ -1363,26 +1385,28 @@ function renderPerfilEntrenos(fechas) {
   const valores = semanasF.map((s) => grupos.get(s) || null);
   const capas = PERFILES.filter((p) => valores.some((v) => v && v[p.clave]));
 
-  graficaConSelector(tarjeta, semanasF, capas, valores, {
+  const valoresH = valores.map(aHoras);
+  graficaConSelector(tarjeta, semanasF, capas, valoresH, {
     alto: 220,
     conTotal: true,
-    formato: (v) => fnum(v) + " min",
-    formatoTotal: (v) => fnum(v) + " min",
+    formato: fmtTiempo,
+    formatoTotal: fmtTiempo,
+    formatoEjeY: fmtEjeTiempo,
     etiquetaX: (s) => "Semana del " + ffechaLarga(s),
   });
   botonTabla(
     tarjeta,
     ["Semana", ...capas.map((c) => c.nombre)],
-    semanasF.map((s, i) => ["Semana del " + ffechaLarga(s), ...capas.map((c) => (valores[i] && valores[i][c.clave] ? fnum(valores[i][c.clave]) + " min" : null))])
+    semanasF.map((s, i) => ["Semana del " + ffechaLarga(s), ...capas.map((c) => (valoresH[i] && valoresH[i][c.clave] ? fmtTiempo(valoresH[i][c.clave]) : null))])
   );
 
   const susurro = [];
-  if (porSemana.continuoSuave >= 1) susurro.push(`${fnum(porSemana.continuoSuave)} min continuos suaves`);
-  if (porSemana.continuoFuerte >= 1) susurro.push(`${fnum(porSemana.continuoFuerte)} min continuos fuertes`);
-  if (porSemana.intervalos >= 1) susurro.push(`${fnum(porSemana.intervalos)} min de intervalos`);
+  if (porSemana.continuoSuave >= 1) susurro.push(`${fdur(porSemana.continuoSuave * 60)} de continuo suave`);
+  if (porSemana.continuoFuerte >= 1) susurro.push(`${fdur(porSemana.continuoFuerte * 60)} de continuo fuerte`);
+  if (porSemana.intervalos >= 1) susurro.push(`${fdur(porSemana.intervalos * 60)} de intervalos`);
   const aparte = [];
-  if (porSemana.musculacion >= 1) aparte.push(`${fnum(porSemana.musculacion)} min de musculación`);
-  if (porSemana.movilidad >= 1) aparte.push(`${fnum(porSemana.movilidad)} min de movilidad`);
+  if (porSemana.musculacion >= 1) aparte.push(`${fdur(porSemana.musculacion * 60)} de musculación`);
+  if (porSemana.movilidad >= 1) aparte.push(`${fdur(porSemana.movilidad * 60)} de movilidad`);
 
   const frases = [];
   if (susurro.length) {
