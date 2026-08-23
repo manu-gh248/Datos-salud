@@ -491,16 +491,28 @@ function leyendaFiltro(tarjeta, capas, seleccion, alCambiar) {
 
 // Junta las dos cosas: la leyenda que filtra y la gráfica agrupada, guardando
 // la elección en la propia tarjeta para que sobreviva al cambio de rango.
+const CAPA_TOTAL = { clave: "__total", nombre: "Total", color: "var(--ceniza)" };
+
 function graficaConSelector(tarjeta, fechas, capas, valores, ops) {
+  // "Total" es una serie más de la leyenda: suma todas las demás y, al
+  // elegirla, se ve una sola barra por periodo con su tendencia.
+  const opciones = ops.conTotal && capas.length > 1 ? [...capas, CAPA_TOTAL] : capas;
   const pinta = () => {
     let sel = tarjeta.dataset.serie || "";
-    if (sel && !capas.some((c) => c.clave === sel)) sel = "";
-    const activas = sel ? capas.filter((c) => c.clave === sel) : capas;
-    leyendaFiltro(tarjeta, capas, sel, (clave) => {
+    if (sel && !opciones.some((c) => c.clave === sel)) sel = "";
+    let activas, datos;
+    if (sel === CAPA_TOTAL.clave) {
+      activas = [CAPA_TOTAL];
+      datos = valores.map((d) => (d ? { __total: suma(capas.map((c) => d[c.clave] || 0)) } : null));
+    } else {
+      activas = sel ? capas.filter((c) => c.clave === sel) : capas;
+      datos = valores;
+    }
+    leyendaFiltro(tarjeta, opciones, sel, (clave) => {
       tarjeta.dataset.serie = clave;
       pinta();
     });
-    graficaAgrupada($(".viz", tarjeta), fechas, activas, valores, { ...ops, tendencia: !!sel });
+    graficaAgrupada($(".viz", tarjeta), fechas, activas, datos, { ...ops, tendencia: !!sel });
   };
   pinta();
 }
@@ -1099,6 +1111,7 @@ function renderSueno(fechas) {
   if (capas.length > 1) {
     graficaConSelector(tarjeta, f, capas, valores, {
       alto: 250,
+      conTotal: true,
       formato: fmtH,
       formatoTotal: fmtH,
       formatoEjeY: (v, max) => (max >= 2.5 ? fnum(v, 0) + " h" : fnum(v * 60, 0) + " min"),
@@ -1204,6 +1217,7 @@ function renderEntrenos(fechas) {
   const tarjeta = $("#c-entrenos");
   graficaConSelector(tarjeta, semanasF, capas, valores, {
     alto: 240,
+    conTotal: true,
     formato: (v) => fnum(v) + " min",
     formatoTotal: (v) => fnum(v) + " min",
     etiquetaX: (s) => "Semana del " + ffechaLarga(s),
@@ -1312,6 +1326,7 @@ function renderPerfilEntrenos(fechas) {
 
   graficaConSelector(tarjeta, semanasF, capas, valores, {
     alto: 220,
+    conTotal: true,
     formato: (v) => fnum(v) + " min",
     formatoTotal: (v) => fnum(v) + " min",
     etiquetaX: (s) => "Semana del " + ffechaLarga(s),
