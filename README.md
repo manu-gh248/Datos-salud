@@ -38,6 +38,13 @@ enlaza el trabajo en el que se apoya. Solo se citan guías oficiales,
 revisiones sistemáticas y cohortes grandes; los divulgadores aparecen cuando
 lo que aportan es el protocolo práctico.
 
+## Qué hay dentro de tu archivo
+
+Al final de la página, una tarjeta plegable lista todos los tipos de registro
+que traía el export y si la app los usa. Sirve para distinguir «esto el
+iPhone no lo exporta» de «esto la app no lo lee», que es la duda habitual
+cuando falta algo (la medicación, sin ir más lejos).
+
 ## Despliegue
 
 Publicada en Netlify (proyecto `datos-salud`) con despliegue continuo desde
