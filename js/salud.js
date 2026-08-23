@@ -1490,6 +1490,9 @@ function tablaDias(fechas) {
     agua = v("HKQuantityTypeIdentifierDietaryWater");
   return fechas.map((f, i) => {
     const noche = DATOS.sueno[f] || null; // termina la mañana de f
+    // La noche que empieza la tarde-noche de f se apunta al día siguiente:
+    // es la que responde a "¿qué tal duermo DESPUÉS de un día así?".
+    const nocheSig = DATOS.sueno[sumaDias(f, 1)] || null;
     const dow = (new Date(f + "T12:00:00Z").getUTCDay() + 6) % 7; // 0 = lunes
     return {
       f,
@@ -1516,6 +1519,11 @@ function tablaDias(fechas) {
       remH: noche ? noche.rem / 3600 : null,
       eficiencia: noche && noche.enCama > 0 ? Math.min(100, (noche.dormido / noche.enCama) * 100) : null,
       acostarseH: noche && noche.inicio ? minutosDeHora(noche.inicio, true) / 60 : null,
+      dormidoSigH: nocheSig ? nocheSig.dormido / 3600 : null,
+      profundoSigH: nocheSig ? nocheSig.profundo / 3600 : null,
+      remSigH: nocheSig ? nocheSig.rem / 3600 : null,
+      eficienciaSig: nocheSig && nocheSig.enCama > 0 ? Math.min(100, (nocheSig.dormido / nocheSig.enCama) * 100) : null,
+      acostarseSigH: nocheSig && nocheSig.inicio ? minutosDeHora(nocheSig.inicio, true) / 60 : null,
     };
   });
 }
@@ -2915,10 +2923,15 @@ const METRICAS_CRUCE = [
   { clave: "energia", nombre: "Energía activa (kcal)", fmt: (v) => fnum(v) },
   { clave: "minEj", nombre: "Minutos de ejercicio", fmt: (v) => fnum(v) },
   { clave: "entrenoMin", nombre: "Minutos de entreno", fmt: (v) => fnum(v) },
-  { clave: "dormidoH", nombre: "Sueño de la noche anterior", fmt: (v) => fdur(v * 3600) },
-  { clave: "profundoH", nombre: "Sueño profundo (noche anterior)", fmt: (v) => fdur(v * 3600) },
-  { clave: "eficiencia", nombre: "Eficiencia del sueño (%)", fmt: (v) => fnum(v, 0) + " %" },
-  { clave: "acostarseH", nombre: "Hora de acostarse", fmt: (v) => horaTexto(v * 60) },
+  { clave: "dormidoH", nombre: "Sueño de la noche ANTERIOR", fmt: (v) => fdur(v * 3600) },
+  { clave: "profundoH", nombre: "Sueño profundo de la noche ANTERIOR", fmt: (v) => fdur(v * 3600) },
+  { clave: "eficiencia", nombre: "Eficiencia de la noche ANTERIOR (%)", fmt: (v) => fnum(v, 0) + " %" },
+  { clave: "acostarseH", nombre: "Hora de acostarse la noche ANTERIOR", fmt: (v) => horaTexto(v * 60) },
+  { clave: "dormidoSigH", nombre: "Sueño de ESA noche", fmt: (v) => fdur(v * 3600) },
+  { clave: "profundoSigH", nombre: "Sueño profundo de ESA noche", fmt: (v) => fdur(v * 3600) },
+  { clave: "remSigH", nombre: "Sueño REM de ESA noche", fmt: (v) => fdur(v * 3600) },
+  { clave: "eficienciaSig", nombre: "Eficiencia de ESA noche (%)", fmt: (v) => fnum(v, 0) + " %" },
+  { clave: "acostarseSigH", nombre: "Hora de acostarse ESA noche", fmt: (v) => horaTexto(v * 60) },
   { clave: "fcReposo", nombre: "FC en reposo (ppm)", fmt: (v) => fnum(v, 0) },
   { clave: "hrv", nombre: "HRV (ms)", fmt: (v) => fnum(v, 0) },
   { clave: "peso", nombre: "Peso (kg)", fmt: (v) => fnum(v, 1) },
