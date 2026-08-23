@@ -471,8 +471,9 @@ function graficaAgrupada(cont, fechas, capas, valores, ops) {
   cont.appendChild(envoltura);
 }
 
-// Leyenda que además filtra: al tocar una serie se queda sola.
-function leyendaFiltro(tarjeta, capas, seleccion, alCambiar) {
+// Leyenda que además filtra, con selección múltiple: el primer toque deja
+// sola la serie que tocas y, a partir de ahí, cada toque suma o quita.
+function leyendaFiltro(tarjeta, capas, visibles, alCambiar) {
   let ley = $(".viz-leyenda", tarjeta);
   if (!ley) {
     ley = document.createElement("div");
@@ -480,30 +481,32 @@ function leyendaFiltro(tarjeta, capas, seleccion, alCambiar) {
     $(".cab-tarjeta", tarjeta).after(ley);
   }
   ley.replaceChildren();
+  const todas = !visibles.length;
   for (const it of capas) {
+    const activa = todas || visibles.includes(it.clave);
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "viz-leyenda-item chip-filtro" + (seleccion && seleccion !== it.clave ? " apagado" : "");
-    chip.setAttribute("aria-pressed", String(seleccion === it.clave));
+    chip.className = "viz-leyenda-item chip-filtro" + (activa ? "" : " apagado");
+    chip.setAttribute("aria-pressed", String(activa));
     const sw = document.createElement("span");
     sw.className = it.linea ? "viz-sw-linea" : "viz-sw";
     sw.style.background = it.color;
     chip.appendChild(sw);
     chip.appendChild(document.createTextNode(it.nombre));
-    chip.addEventListener("click", () => alCambiar(seleccion === it.clave ? "" : it.clave));
+    chip.addEventListener("click", () => alCambiar(it.clave));
     ley.appendChild(chip);
   }
-  if (seleccion) {
-    const todas = document.createElement("button");
-    todas.type = "button";
-    todas.className = "viz-leyenda-item chip-filtro chip-todas";
-    todas.textContent = "Ver todas";
-    todas.addEventListener("click", () => alCambiar(""));
-    ley.appendChild(todas);
+  if (!todas) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "viz-leyenda-item chip-filtro chip-todas";
+    btn.textContent = "Ver todas";
+    btn.addEventListener("click", () => alCambiar(null));
+    ley.appendChild(btn);
   } else {
     const pista = document.createElement("span");
     pista.className = "chip-pista";
-    pista.textContent = "toca una para verla sola";
+    pista.textContent = "toca las que quieras comparar";
     ley.appendChild(pista);
   }
 }
@@ -516,22 +519,36 @@ function graficaConSelector(tarjeta, fechas, capas, valores, ops) {
   // "Total" es una serie más de la leyenda: suma todas las demás y, al
   // elegirla, se ve una sola barra por periodo con su tendencia.
   const opciones = ops.conTotal && capas.length > 1 ? [...capas, CAPA_TOTAL] : capas;
+  const leeVisibles = () =>
+    (tarjeta.dataset.series || "").split(",").filter((c) => c && opciones.some((o) => o.clave === c));
+
+  const alCambiar = (clave) => {
+    if (clave === null) {
+      tarjeta.dataset.series = "";
+    } else {
+      let v = leeVisibles();
+      // El total no se mezcla con las partes: o la suma, o el detalle.
+      if (clave === CAPA_TOTAL.clave || v.includes(CAPA_TOTAL.clave)) v = v.includes(clave) ? [] : [clave];
+      else if (!v.length) v = [clave];
+      else if (v.includes(clave)) v = v.filter((c) => c !== clave);
+      else v = [...v, clave];
+      tarjeta.dataset.series = v.join(",");
+    }
+    pinta();
+  };
+
   const pinta = () => {
-    let sel = tarjeta.dataset.serie || "";
-    if (sel && !opciones.some((c) => c.clave === sel)) sel = "";
+    const visibles = leeVisibles();
     let activas, datos;
-    if (sel === CAPA_TOTAL.clave) {
+    if (visibles.length === 1 && visibles[0] === CAPA_TOTAL.clave) {
       activas = [CAPA_TOTAL];
       datos = valores.map((d) => (d ? { __total: suma(capas.map((c) => d[c.clave] || 0)) } : null));
     } else {
-      activas = sel ? capas.filter((c) => c.clave === sel) : capas;
+      activas = visibles.length ? capas.filter((c) => visibles.includes(c.clave)) : capas;
       datos = valores;
     }
-    leyendaFiltro(tarjeta, opciones, sel, (clave) => {
-      tarjeta.dataset.serie = clave;
-      pinta();
-    });
-    graficaAgrupada($(".viz", tarjeta), fechas, activas, datos, { ...ops, tendencia: !!sel });
+    leyendaFiltro(tarjeta, opciones, visibles, alCambiar);
+    graficaAgrupada($(".viz", tarjeta), fechas, activas, datos, { ...ops, tendencia: activas.length === 1 });
   };
   pinta();
 }
@@ -1268,6 +1285,7 @@ function renderEntrenos(fechas) {
       td.textContent = c;
       tr.appendChild(td);
     }
+    if (tr.lastChild) tr.lastChild.title = detallePerfil(e);
     const tdCurva = document.createElement("td");
     const curva = curvaEntreno(e);
     if (curva) tdCurva.appendChild(curva);
@@ -1323,7 +1341,7 @@ function renderPerfilEntrenos(fechas) {
   }
   const fcRef = DATOS.meta.fcMaxRef;
   sub.textContent =
-    "Se mira la curva de pulso de cada sesión de cardio: si sube y baja varias veces, es de intervalos; si se mantiene, es continua. La musculación y la movilidad van aparte, porque su pulso sube y baja entre series y no significa lo mismo." +
+    "Se mira la curva de pulso de cada sesión de cardio: si sube y baja varias veces, es de intervalos; si se mantiene, es continua, y ahí la línea está en 140 ppm de media (por debajo, suave; por encima, fuerte). La musculación y la movilidad van aparte, porque su pulso sube y baja entre series y no significa lo mismo." +
     (fcRef ? ` Tu pulso máximo de referencia, el más alto que repites de verdad, es ${fnum(fcRef)} ppm.` : "");
 
   const { porSemana } = minutosPorPerfil(fechas);
@@ -1377,6 +1395,15 @@ function renderPerfilEntrenos(fechas) {
   $("#lectura-perfil").textContent = frases.join(" ");
 }
 
+// Los números con los que se ha decidido el perfil, a mano: si una sesión
+// sale mal clasificada, se ve por qué sin abrir nada.
+function detallePerfil(e) {
+  if (!e.fcMin) return "Sin registro de pulso en esta sesión";
+  const partes = [`media ${fnum(e.fc)} ppm`, `entre ${e.fcMin} y ${e.fcMax}`, `amplitud ${fnum(e.fcAmplitud)} ppm`];
+  if (e.oscilaciones != null) partes.push(`${fnum(e.oscilaciones)} subidas y bajadas`);
+  return partes.join(" · ");
+}
+
 // Dibuja la curva de pulso de una sesión en miniatura.
 function curvaEntreno(e) {
   if (!e.curva || e.curva.length < 4) return null;
@@ -1390,7 +1417,7 @@ function curvaEntreno(e) {
   e.curva.forEach((v, i) => (d += (i ? "L" : "M") + X(i).toFixed(1) + "," + Y(v).toFixed(1)));
   const svg = el("svg", { viewBox: `0 0 ${w} ${h}`, width: w, height: h, class: "spark", role: "img" });
   const titulo = el("title", {});
-  titulo.textContent = `Pulso entre ${e.fcMin} y ${e.fcMax} ppm`;
+  titulo.textContent = detallePerfil(e);
   svg.appendChild(titulo);
   const linea = el("path", { d, class: "spark-linea" });
   if (e.perfil === "intervalos") linea.style.stroke = "var(--s2)";
