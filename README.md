@@ -3,8 +3,9 @@
 Aplicación web personal que analiza el export completo de la app Salud del
 iPhone (`export.zip`): actividad, corazón, sueño por fases, entrenamientos,
 peso, medicación y suplementos. Compara con la media de hombres de tu edad,
-cruza métricas buscando patrones (esperados e inesperados) y lo explica todo
-con ejemplos aplicados a tus datos.
+cruza métricas buscando patrones (esperados e inesperados), propone qué
+hacer con la evidencia citada al lado y lo explica todo con ejemplos
+aplicados a tus datos.
 
 ## Privacidad, por diseño
 
@@ -28,7 +29,17 @@ archivo cada vez; «Borrar mis datos» los elimina.
 En el iPhone: Salud → tu foto → «Exportar todos los datos de salud». Pásate
 el `export.zip` al Mac (AirDrop) y arrástralo a la página. Sin descomprimir.
 
+## Consejos con fuente
+
+La tarjeta «Qué puedes hacer» no da consejos genéricos: cada uno se dispara
+por tus propios números (VO₂ máx frente a tu edad, minutos de fuerza a la
+semana, regularidad de la hora de acostarte, tu HRV las noches que bebes…) y
+enlaza el trabajo en el que se apoya. Solo se citan guías oficiales,
+revisiones sistemáticas y cohortes grandes; los divulgadores aparecen cuando
+lo que aportan es el protocolo práctico.
+
 ## Despliegue
 
-Cualquier hosting estático vale. En Netlify: nuevo proyecto → importar este
-repositorio/rama → sin comando de build → publicar el directorio raíz.
+Publicada en Netlify (proyecto `datos-salud`) con despliegue continuo desde
+este repositorio: cada push a la rama por defecto se publica solo. Sin
+comando de build, directorio raíz.

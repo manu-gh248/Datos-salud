@@ -665,7 +665,7 @@ function render() {
   renderInteligencia(fechas);
   renderInesperados(fechas);
   renderMeds(fechas);
-  renderConsejos(fechas);
+  renderPlan(fechas);
   renderRecords(fechas);
   renderTendencias(fechas);
   renderActividad(fechas);
@@ -1751,60 +1751,388 @@ function renderMeds(fechas) {
 }
 
 // ===========================================================================
-// Consejos: reglas sencillas sobre tus propios números
+// Plan personal: qué hacer, con la evidencia detrás
 // ===========================================================================
-function motorConsejos(fechas) {
+// Cada consejo nace de tus propios números y cita el trabajo en el que se
+// apoya. Solo entran guías oficiales, revisiones sistemáticas y cohortes
+// grandes; los divulgadores aparecen únicamente cuando lo que aportan es el
+// protocolo práctico, no la evidencia.
+const FUENTES = {
+  oms: { t: "OMS, guías de actividad física (2020)", u: "https://www.who.int/publications/i/item/9789240015128" },
+  vo2: { t: "Mandsager, JAMA Netw Open 2018 · 122.000 personas", u: "https://pubmed.ncbi.nlm.nih.gov/30646252/" },
+  pasos: { t: "Paluch, Lancet Public Health 2022 · 15 cohortes", u: "https://pubmed.ncbi.nlm.nih.gov/35247352/" },
+  fuerza: { t: "Momma, Br J Sports Med 2022 · revisión de 16 cohortes", u: "https://pubmed.ncbi.nlm.nih.gov/35228201/" },
+  vilpa: { t: "Stamatakis, Nature Medicine 2022 · 25.241 personas", u: "https://www.nature.com/articles/s41591-022-02100-x" },
+  horas: { t: "Consenso AASM y Sleep Research Society, Sleep 2015", u: "https://pubmed.ncbi.nlm.nih.gov/26039963/" },
+  regular: { t: "Windred, Sleep 2024 · 60.000 personas con acelerómetro", u: "https://pubmed.ncbi.nlm.nih.gov/37738616/" },
+  cafeina: { t: "Drake, J Clin Sleep Med 2013 · ensayo con 400 mg", u: "https://pubmed.ncbi.nlm.nih.gov/24235903/" },
+  efsa: { t: "EFSA, seguridad de la cafeína (2015)", u: "https://www.efsa.europa.eu/en/efsajournal/pub/4102" },
+  alcohol: { t: "Pietilä, JMIR Mental Health 2018 · 4.098 personas", u: "https://mental.jmir.org/2018/1/e23/" },
+  luz: { t: "Burns, J Affect Disord 2021 · 400.000 personas", u: "https://pubmed.ncbi.nlm.nih.gov/34488088/" },
+  tension: { t: "Guía de hipertensión ACC/AHA 2017", u: "https://www.ahajournals.org/doi/10.1161/HYP.0000000000000065" },
+  attia: { t: "Peter Attia, «Outlive» (2023)", u: "https://peterattiamd.com/outlive/" },
+  huberman: { t: "Huberman Lab, protocolo de luz y ritmo circadiano", u: "https://www.hubermanlab.com/newsletter/using-light-for-health" },
+};
+
+// Entrenos que cuentan como trabajo de fuerza en el export de Apple.
+const TIPOS_FUERZA = ["TraditionalStrengthTraining", "FunctionalStrengthTraining", "CoreTraining"];
+
+// Empareja lo de un día con la noche siguiente: lo que bebes o tomas el
+// lunes se nota en el sueño y la HRV de la madrugada del martes.
+function diasConNocheSiguiente(dias) {
+  const out = [];
+  for (let i = 1; i < dias.length; i++) {
+    out.push({
+      ayer: dias[i - 1],
+      dormidoH: dias[i].dormidoH,
+      profundoH: dias[i].profundoH,
+      hrv: dias[i].hrv,
+      fcReposo: dias[i].fcReposo,
+    });
+  }
+  return out;
+}
+
+function motorPlan(fechas) {
   const dias = tablaDias(fechas);
   const noches = tablaNoches(fechas);
-  const C = [];
+  const semanas = Math.max(1, fechas.length / 7);
+  const edad = edadUsuario();
+  const P = [];
 
-  const minSemana = media(dias.map((d) => d.minEj));
-  if (minSemana != null) {
-    const sem = minSemana * 7;
-    if (sem < 150)
-      C.push({ tipo: "accion", texto: `Estás en ${fnum(sem)} minutos de ejercicio a la semana; la OMS recomienda 150. Un paseo rápido de 20 minutos al día te deja en la meta.` });
-    else C.push({ tipo: "ok", texto: `Cumples de sobra la recomendación de ejercicio de la OMS: ${fnum(sem)} minutos semanales (la meta son 150).` });
+  // --- 1. Capacidad aeróbica (VO₂ máx) -------------------------------------
+  const ultimoVO2 = [...dias].reverse().find((d) => d.vo2 != null);
+  if (ultimoVO2) {
+    const v = ultimoVO2.vo2;
+    const ref = edad ? REF_VO2[decada(edad)] : null;
+    const enForma = ref ? v >= ref[1][0] : v >= 42;
+    const contexto = ref
+      ? ` Para un hombre de ${edad} años lo corriente es ${ref[0][0]}–${ref[0][1]}, y la franja de los que están en forma empieza en ${ref[1][0]}.`
+      : "";
+    P.push(
+      enForma
+        ? {
+            dominio: "Corazón y forma física",
+            estado: "ok",
+            prioridad: 98,
+            titulo: "Tu capacidad aeróbica ya juega a tu favor",
+            dato: `Tu VO₂ máx es de ${fnum(v, 1)} ml/kg·min.${contexto}`,
+            hacer: "Protégelo: una sesión dura a la semana (por ejemplo 4 series de 4 minutos fuertes con 3 de recuperación) basta para no perderlo, más el rodaje suave que ya haces.",
+            porque: "En 122.000 personas medidas en cinta, la capacidad aeróbica fue el factor que más se asoció a vivir más años, y el beneficio seguía subiendo sin techo visible: estar en el grupo alto se asoció a un 80 % menos de mortalidad que estar en el bajo.",
+            fuentes: ["vo2", "attia"],
+          }
+        : {
+            dominio: "Corazón y forma física",
+            estado: "accion",
+            prioridad: 100,
+            titulo: "Subir el VO₂ máx es la palanca con más recorrido que tienes",
+            dato: `Tu VO₂ máx es de ${fnum(v, 1)} ml/kg·min.${contexto}`,
+            hacer: "Añade una sesión semanal de intervalos: tras calentar, 4 series de 4 minutos a un ritmo en el que solo puedas decir dos o tres palabras, con 3 minutos suaves entre series. El resto de la semana, 2 o 3 salidas de 45 minutos a ritmo cómodo, en el que puedas hablar sin ahogarte.",
+            porque: "En 122.000 personas medidas en cinta, la capacidad aeróbica predijo la mortalidad mejor que la diabetes, el tabaco o la enfermedad coronaria, y el beneficio no tenía techo: cada escalón que subes cuenta.",
+            fuentes: ["vo2", "attia"],
+          }
+    );
   }
 
+  // --- 2. Minutos de ejercicio a la semana (OMS) ---------------------------
+  const minDia = media(dias.map((d) => d.minEj));
+  if (minDia != null) {
+    const sem = minDia * 7;
+    if (sem < 150) {
+      P.push({
+        dominio: "Corazón y forma física",
+        estado: "accion",
+        prioridad: 92,
+        titulo: "Te faltan minutos de ejercicio para llegar al mínimo",
+        dato: `Estás en ${fnum(sem)} minutos de ejercicio a la semana; el mínimo recomendado son 150 y la franja donde más beneficio se ve es 150–300.`,
+        hacer: `Reparte el déficit en cuatro días: ${fnum(Math.ceil((150 - sem) / 4))} minutos más de caminata rápida, bici o lo que ya te guste, en cada uno de esos cuatro días.`,
+        porque: "Es el suelo, no el objetivo: por debajo de 150 minutos semanales se pierde la mayor parte del efecto protector sobre corazón, metabolismo y mortalidad.",
+        fuentes: ["oms"],
+      });
+    } else {
+      P.push({
+        dominio: "Corazón y forma física",
+        estado: "ok",
+        prioridad: 60,
+        titulo: "Cumples el mínimo semanal de ejercicio",
+        dato: `${fnum(sem)} minutos de ejercicio a la semana (el mínimo son 150; la franja de más beneficio, 150–300).`,
+        hacer: sem > 300 ? "Con este volumen, lo que más te renta es cuidar la recuperación y no acumular semanas duras seguidas." : "Mantén lo que haces y, si quieres más, sube por calidad (una sesión más intensa) antes que por cantidad.",
+        porque: "A partir de 150 minutos semanales aparece la mayor parte del beneficio; entre 150 y 300 se consolida.",
+        fuentes: ["oms"],
+      });
+    }
+  }
+
+  // --- 3. Fuerza -----------------------------------------------------------
+  const entrenosRango = DATOS.entrenos.filter((e) => e.fecha >= fechas[0] && e.fecha <= fechas[fechas.length - 1]);
+  const fuerza = entrenosRango.filter((e) => TIPOS_FUERZA.includes(e.tipo));
+  const minFuerzaSem = fuerza.reduce((a, e) => a + e.dur, 0) / semanas;
+  const sesionesFuerzaSem = fuerza.length / semanas;
+  if (entrenosRango.length || fuerza.length) {
+    if (minFuerzaSem < 30) {
+      P.push({
+        dominio: "Fuerza",
+        estado: "accion",
+        prioridad: 96,
+        titulo: fuerza.length ? "La fuerza se te queda corta" : "No aparece nada de fuerza en tus datos",
+        dato: fuerza.length
+          ? `Registras ${fnum(minFuerzaSem)} minutos de fuerza a la semana (${fnum(sesionesFuerzaSem, 1)} sesiones), y el punto dulce está en 30–60.`
+          : "En este periodo no hay ningún entrenamiento de fuerza registrado, solo actividad aeróbica.",
+        hacer: "Dos sesiones de 20–30 minutos a la semana, con seis movimientos básicos: sentadilla, peso muerto o bisagra de cadera, empuje horizontal, empuje vertical, remo y algo de core. Tres series de cada uno, dejando una o dos repeticiones en la recámara.",
+        porque: "Entre 30 y 60 minutos semanales de fuerza se asocian a un 10–17 % menos de mortalidad, de infarto, de diabetes y de cáncer, y ese efecto es independiente del ejercicio aeróbico que hagas. Pasar de 60 minutos no añadió más beneficio.",
+        fuentes: ["fuerza", "oms"],
+      });
+    } else {
+      P.push({
+        dominio: "Fuerza",
+        estado: "ok",
+        prioridad: 58,
+        titulo: "Estás en la dosis de fuerza que se asocia a vivir más",
+        dato: `${fnum(minFuerzaSem)} minutos de fuerza a la semana repartidos en ${fnum(sesionesFuerzaSem, 1)} sesiones.`,
+        hacer: "No hace falta más volumen: sube la carga poco a poco manteniendo estas dos o tres sesiones.",
+        porque: "El beneficio se concentra entre 30 y 60 minutos semanales; a partir de ahí la curva se aplana.",
+        fuentes: ["fuerza"],
+      });
+    }
+  }
+
+  // --- 4. Pasos ------------------------------------------------------------
   const mPasos = media(dias.map((d) => d.pasos));
   if (mPasos != null) {
-    if (mPasos < 8000) C.push({ tipo: "accion", texto: `Tu media es de ${fnum(mPasos)} pasos al día. Subir hacia 8.000 tiene uno de los mejores retornos salud/esfuerzo que existen.` });
-    else C.push({ tipo: "ok", texto: `${fnum(mPasos)} pasos al día de media: por encima del umbral de 8.000 asociado a menor mortalidad.` });
+    // El punto donde la curva se aplana depende de la edad.
+    const meta = edad != null && edad >= 60 ? 7000 : 9000;
+    const suelo = edad != null && edad >= 60 ? 6000 : 8000;
+    if (mPasos < suelo) {
+      P.push({
+        dominio: "Movimiento diario",
+        estado: "accion",
+        prioridad: 88,
+        titulo: "Los pasos son tu mejora más barata",
+        dato: `Caminas ${fnum(mPasos)} pasos al día de media. El riesgo de muerte prematura deja de bajar alrededor de los ${fnum(meta)}${edad != null ? ` para tu edad` : ""}.`,
+        hacer: `Te faltan unos ${fnum(suelo - mPasos)} pasos: son entre 15 y 25 minutos de caminata. Lo más fácil es fijarlos a algo que ya haces (después de comer, o la última llamada del día andando).`,
+        porque: "En un análisis de 15 cohortes con 47.000 personas, cada escalón de pasos diarios bajaba la mortalidad hasta aplanarse en torno a 8.000–10.000 (6.000–8.000 a partir de los 60). No hace falta llegar a 10.000 para tener casi todo el beneficio.",
+        fuentes: ["pasos"],
+      });
+    } else {
+      P.push({
+        dominio: "Movimiento diario",
+        estado: "ok",
+        prioridad: 55,
+        titulo: "Tus pasos ya están en la zona buena",
+        dato: `${fnum(mPasos)} pasos al día de media, por encima del punto en el que la curva de mortalidad se aplana para tu edad.`,
+        hacer: "Aquí no hay nada que arreglar. Si quieres más, mete cuestas o escaleras en esos mismos paseos.",
+        porque: "Más allá de ese punto, sumar pasos apenas cambia el riesgo; lo que sí añade es la intensidad.",
+        fuentes: ["pasos"],
+      });
+    }
   }
 
+  // --- 5. Ráfagas de intensidad en el día a día (VILPA) --------------------
+  const entrenosSem = entrenosRango.length / semanas;
+  if (mPasos != null && entrenosSem < 3) {
+    P.push({
+      dominio: "Movimiento diario",
+      estado: "accion",
+      prioridad: 70,
+      titulo: "Tres ráfagas de un minuto al día, sin cambiarte de ropa",
+      dato: `Registras ${fnum(entrenosSem, 1)} entrenos por semana, así que la mayor parte de tu actividad es de intensidad suave.`,
+      hacer: "Busca tres momentos al día para ir un minuto o dos a tope sin que sea «entrenar»: subir escaleras rápido en vez del ascensor, cargar la compra hasta casa a buen paso, o acelerar el último tramo del paseo hasta quedarte sin aire.",
+      porque: "En 25.000 personas que no hacían ejercicio, unos 4 minutos diarios repartidos en ráfagas de uno o dos minutos se asociaron a un 26–30 % menos de mortalidad y un 32–34 % menos de muerte cardiovascular.",
+      fuentes: ["vilpa"],
+    });
+  }
+
+  // --- 6. Horas de sueño ---------------------------------------------------
   const mSueno = media(noches.map((n) => n.dormido));
   if (mSueno != null) {
-    if (mSueno < 7 * 3600)
-      C.push({ tipo: "accion", texto: `Duermes ${fdur(mSueno)} de media, por debajo de las 7 horas recomendadas. Adelantar la hora de acostarte ${fdur(7 * 3600 - mSueno)} bastaría.` });
-    else C.push({ tipo: "ok", texto: `Duermes ${fdur(mSueno)} de media: dentro de las 7–9 horas recomendadas para un adulto.` });
+    if (mSueno < 7 * 3600) {
+      P.push({
+        dominio: "Sueño",
+        estado: "accion",
+        prioridad: 94,
+        titulo: "Duermes por debajo del mínimo recomendado",
+        dato: `Duermes ${fdur(mSueno)} de media, cuando el consenso para un adulto son 7 horas o más.`,
+        hacer: `Adelanta la hora de acostarte ${fdur(7 * 3600 - mSueno + 1800)} (media hora extra porque nunca se duerme todo el tiempo que se está en la cama) y pon una alarma para irte a dormir, no solo para levantarte.`,
+        porque: "Por debajo de 7 horas de forma habitual empeoran el control de la glucosa, la tensión, la atención y el sistema inmune, según el consenso de la Academia Americana de Medicina del Sueño.",
+        fuentes: ["horas"],
+      });
+    } else {
+      P.push({
+        dominio: "Sueño",
+        estado: "ok",
+        prioridad: 57,
+        titulo: "Duermes las horas que se recomiendan",
+        dato: `${fdur(mSueno)} de media por noche, dentro de las 7–9 horas del consenso para adultos.`,
+        hacer: "Mantén el horario también el fin de semana: es lo que hace que estas horas rindan.",
+        porque: "La cantidad ya la tienes; a partir de aquí lo que más suma es la regularidad.",
+        fuentes: ["horas", "regular"],
+      });
+    }
   }
 
+  // --- 7. Regularidad del sueño -------------------------------------------
   const sd = desviacion(noches.map((n) => n.acostarse));
   if (sd != null) {
-    if (sd > 45)
-      C.push({ tipo: "accion", texto: `Tu hora de acostarte varía ±${fnum(sd, 0)} minutos. La regularidad importa casi tanto como la duración: intenta moverte en una ventana de media hora.` });
-    else C.push({ tipo: "ok", texto: `Hora de acostarte estable (±${fnum(sd, 0)} min). La regularidad es de lo que más protege el sueño.` });
+    if (sd > 40) {
+      P.push({
+        dominio: "Sueño",
+        estado: "accion",
+        prioridad: 97,
+        titulo: "Tu horario de sueño baila más de lo que conviene",
+        dato: `Tu hora de acostarte varía ±${fnum(sd, 0)} minutos de una noche a otra.`,
+        hacer: "Elige una hora fija de levantarte, todos los días, incluido el fin de semana, y deja que la hora de acostarte se ajuste sola. Apunta a una ventana de media hora.",
+        porque: "En 60.000 personas medidas con acelerómetro, la regularidad del sueño predijo la mortalidad mejor que el número de horas: el grupo más regular tuvo un 30 % menos de mortalidad por cualquier causa.",
+        fuentes: ["regular", "huberman"],
+      });
+    } else {
+      P.push({
+        dominio: "Sueño",
+        estado: "ok",
+        prioridad: 62,
+        titulo: "Tu horario de sueño es estable, que es lo que más pesa",
+        dato: `Te acuestas dentro de una ventana de ±${fnum(sd, 0)} minutos.`,
+        hacer: "Sigue así, sobre todo en viajes y fines de semana.",
+        porque: "La regularidad del sueño predijo la mortalidad mejor que la duración en un estudio con 60.000 personas.",
+        fuentes: ["regular"],
+      });
+    }
   }
 
-  const mProf = media(noches.map((n) => (n.profundo > 0 ? n.profundo : null)));
-  if (mProf != null && mSueno && mProf / mSueno < 0.12)
-    C.push({ tipo: "accion", texto: `El sueño profundo es el ${fnum((mProf / mSueno) * 100, 0)} % del total (lo típico ronda el 13–23 %). El ejercicio regular y cenar pronto lo favorecen.` });
+  // --- 8. Alcohol: lo que le hace a TU sueño ------------------------------
+  const parejas = diasConNocheSiguiente(dias);
+  const conAlcohol = parejas.filter((p) => p.ayer.alcohol > 0);
+  if (conAlcohol.length >= 5 && parejas.length - conAlcohol.length >= 5) {
+    const hrvA = comparaGrupos(parejas, (p) => p.ayer.alcohol > 0, (p) => p.hrv);
+    const profA = comparaGrupos(parejas, (p) => p.ayer.alcohol > 0, (p) => p.profundoH);
+    const trozos = [];
+    if (hrvA.ma != null && hrvA.mb != null) {
+      const dif = ((hrvA.ma - hrvA.mb) / hrvA.mb) * 100;
+      if (Math.abs(dif) >= 3) trozos.push(`tu HRV amanece un ${fnum(Math.abs(dif))} % ${dif < 0 ? "más baja" : "más alta"}`);
+    }
+    if (profA.ma != null && profA.mb != null && profA.mb > 0) {
+      const dif = ((profA.ma - profA.mb) / profA.mb) * 100;
+      if (Math.abs(dif) >= 5) trozos.push(`tu sueño profundo cae un ${fnum(Math.abs(dif))} %`);
+    }
+    if (trozos.length) {
+      P.push({
+        dominio: "Recuperación",
+        estado: "accion",
+        prioridad: 86,
+        titulo: "El alcohol se nota en tus propios números",
+        dato: `Comparando tus ${conAlcohol.length} noches después de beber con las ${parejas.length - conAlcohol.length} que no: ${trozos.join(" y ")}.`,
+        hacer: "Si vas a beber, que sea pronto y poco: deja al menos tres horas entre la última copa y la cama, y evita dos noches seguidas.",
+        porque: "El alcohol adormece pero desactiva el sistema nervioso de recuperación durante las primeras horas de sueño: en 4.098 personas, una dosis moderada bajó la recuperación nocturna un 24 %, y una alta, un 39 %.",
+        fuentes: ["alcohol"],
+      });
+    }
+  }
 
-  // Tendencia de la FC en reposo dentro del rango
-  const fcs = dias.map((d) => d.fcReposo);
+  // --- 9. Cafeína ---------------------------------------------------------
+  const mCaf = media(dias.map((d) => (d.cafeina != null && d.cafeina > 0 ? d.cafeina : null)));
+  if (mCaf != null) {
+    const alta = mCaf > 400;
+    P.push({
+      dominio: "Sueño",
+      estado: alta ? "accion" : "ok",
+      prioridad: alta ? 76 : 50,
+      titulo: alta ? "Tu cafeína diaria pasa del límite seguro" : "Tu cafeína está dentro de lo razonable",
+      dato: `Tomas ${fnum(mCaf)} mg de cafeína al día de media${alta ? ", por encima de los 400 mg que la agencia europea considera seguros para un adulto sano" : " (el límite de seguridad para un adulto sano son 400 mg, unas cuatro tazas)"}.`,
+      hacer: "Corta la cafeína entre 8 y 10 horas antes de acostarte. Si te acuestas a las 23:30, el último café es a las 14:00.",
+      porque: "En un ensayo controlado, 400 mg de cafeína seis horas antes de dormir quitaron más de una hora de sueño objetivo, y los participantes ni lo notaron: la sensación de dormir bien no sirve para juzgar esto.",
+      fuentes: ["cafeina", "efsa"],
+    });
+  }
+
+  // --- 10. Luz natural ----------------------------------------------------
+  const mLuz = media(dias.map((d) => d.luzDia));
+  if (mLuz != null) {
+    const poca = mLuz < 90;
+    P.push({
+      dominio: "Entorno",
+      estado: poca ? "accion" : "ok",
+      prioridad: poca ? 74 : 48,
+      titulo: poca ? "Te falta luz de día, y eso ordena todo lo demás" : "Tomas luz natural suficiente",
+      dato: `Pasas ${fnum(mLuz)} minutos al día a la luz natural de media.`,
+      hacer: poca
+        ? "Saca 10–20 minutos a la calle dentro de la primera hora tras levantarte, sin gafas de sol. Si el día está nublado, que sean 20–30. Un paseo corto o el café en la terraza valen."
+        : "Mantén sobre todo el rato de luz de primera hora de la mañana, que es el que marca el reloj interno.",
+      porque: "En 400.000 personas, más tiempo a la luz del día se asoció a menos síntomas depresivos, menos insomnio y mejor sueño; la luz de la mañana es la señal principal que pone en hora el reloj circadiano.",
+      fuentes: ["luz", "huberman"],
+    });
+  }
+
+  // --- 11. Tensión arterial ------------------------------------------------
+  const sis = media(valoresDe("HKQuantityTypeIdentifierBloodPressureSystolic", fechas));
+  const dia = media(valoresDe("HKQuantityTypeIdentifierBloodPressureDiastolic", fechas));
+  if (sis != null && dia != null) {
+    const alta = sis >= 130 || dia >= 80;
+    P.push({
+      dominio: "Corazón y forma física",
+      estado: alta ? "accion" : "ok",
+      prioridad: alta ? 90 : 52,
+      titulo: alta ? "Tu tensión media está por encima de lo óptimo" : "Tu tensión media está en rango",
+      dato: `Tu media en este periodo es ${fnum(sis)}/${fnum(dia)} mmHg. La guía americana llama óptimo a menos de 120/80 y elevada a partir de 130/80.`,
+      hacer: alta
+        ? "Llévale estas medias a tu médico antes de sacar conclusiones tú solo. Mientras tanto, lo que más baja la tensión sin fármacos es el ejercicio aeróbico regular, bajar la sal y cuidar el alcohol y el peso."
+        : "Sigue midiendo de vez en cuando, siempre a la misma hora y sentado tras cinco minutos de reposo.",
+      porque: "La tensión es de los pocos factores de riesgo que se pueden cambiar y que más pesan en el riesgo cardiovascular a largo plazo.",
+      fuentes: ["tension"],
+    });
+  }
+
+  // --- 12. Tendencia de la FC en reposo -----------------------------------
   const idx = [];
-  fcs.forEach((v, i) => {
-    if (v != null) idx.push([i, v]);
+  dias.forEach((d, i) => {
+    if (d.fcReposo != null) idx.push([i, d.fcReposo]);
   });
   const reg = pearson(idx);
   if (reg && idx.length > 20) {
     const cambio = reg.pendiente * (idx[idx.length - 1][0] - idx[0][0]);
-    if (cambio <= -2) C.push({ tipo: "ok", texto: `Tu FC en reposo ha bajado ${fnum(Math.abs(cambio), 1)} ppm en este periodo: señal clásica de mejora de forma física.` });
-    else if (cambio >= 2.5)
-      C.push({ tipo: "accion", texto: `Tu FC en reposo ha subido ${fnum(cambio, 1)} ppm en este periodo. Estrés, poco sueño o exceso de carga pueden estar detrás; vigílala unos días.` });
+    if (cambio >= 2.5) {
+      P.push({
+        dominio: "Recuperación",
+        estado: "accion",
+        prioridad: 80,
+        titulo: "Tu pulso en reposo va subiendo",
+        dato: `Ha subido ${fnum(cambio, 1)} pulsaciones a lo largo de este periodo.`,
+        hacer: "Mira las tres semanas siguientes: si coincide con dormir poco, más alcohol o una racha de estrés, corrige eso antes de meter más carga de entrenamiento. Si sigue subiendo sin explicación, coméntalo en tu próxima consulta.",
+        porque: "El pulso en reposo sube cuando el cuerpo no está recuperando: falta de sueño, alcohol, estrés o exceso de entrenamiento son las causas habituales.",
+        fuentes: ["alcohol", "horas"],
+      });
+    } else if (cambio <= -2) {
+      P.push({
+        dominio: "Recuperación",
+        estado: "ok",
+        prioridad: 54,
+        titulo: "Tu pulso en reposo está bajando",
+        dato: `Ha bajado ${fnum(Math.abs(cambio), 1)} pulsaciones en este periodo.`,
+        hacer: "Es la señal clásica de que el trabajo aeróbico está calando. Sigue con lo mismo.",
+        porque: "Un corazón que bombea más sangre por latido necesita menos latidos en reposo.",
+        fuentes: ["vo2"],
+      });
+    }
   }
 
-  return C.slice(0, 7);
+  // --- 13. Sueño profundo --------------------------------------------------
+  const mProf = media(noches.map((n) => (n.profundo > 0 ? n.profundo : null)));
+  if (mProf != null && mSueno) {
+    const pct = (mProf / mSueno) * 100;
+    if (pct < 12) {
+      P.push({
+        dominio: "Sueño",
+        estado: "accion",
+        prioridad: 66,
+        titulo: "Tu sueño profundo se queda corto",
+        dato: `El sueño profundo es el ${fnum(pct)} % de lo que duermes; en un adulto suele moverse entre el 13 % y el 23 %.`,
+        hacer: "Las tres palancas que sí dependen de ti: horario estable, entrenar (mejor por la mañana o la tarde, no justo antes de dormir) y cenar pronto y sin alcohol.",
+        porque: "El sueño profundo es la fase en la que más se recupera el cuerpo, y es la primera que se rompe con el alcohol y con los horarios irregulares.",
+        fuentes: ["alcohol", "regular"],
+      });
+    }
+  }
+
+  P.sort((a, b) => (a.estado === b.estado ? b.prioridad - a.prioridad : a.estado === "accion" ? -1 : 1));
+  return P;
 }
 
 // ===========================================================================
@@ -2468,22 +2796,113 @@ function renderRecords(fechas) {
   }
 }
 
-function renderConsejos(fechas) {
+// Pinta un consejo: tus números, qué hacer, por qué y de dónde sale.
+function tarjetaPlan(c) {
+  const art = document.createElement("article");
+  art.className = "plan-item " + c.estado;
+
+  const cab = document.createElement("div");
+  cab.className = "plan-cab";
+  const dom = document.createElement("span");
+  dom.className = "plan-dominio";
+  dom.textContent = c.dominio;
+  const h = document.createElement("h4");
+  h.textContent = c.titulo;
+  cab.appendChild(dom);
+  cab.appendChild(h);
+  art.appendChild(cab);
+
+  const dato = document.createElement("p");
+  dato.className = "plan-dato";
+  dato.textContent = c.dato;
+  art.appendChild(dato);
+
+  const hacer = document.createElement("p");
+  hacer.className = "plan-hacer";
+  const et = document.createElement("strong");
+  et.textContent = "Qué hacer: ";
+  hacer.appendChild(et);
+  hacer.appendChild(document.createTextNode(c.hacer));
+  art.appendChild(hacer);
+
+  const por = document.createElement("p");
+  por.className = "plan-porque";
+  por.textContent = c.porque;
+  art.appendChild(por);
+
+  const fu = document.createElement("p");
+  fu.className = "plan-fuentes";
+  fu.appendChild(document.createTextNode("Fuente: "));
+  c.fuentes.forEach((k, i) => {
+    const f = FUENTES[k];
+    if (!f) return;
+    if (i) fu.appendChild(document.createTextNode(" · "));
+    const a = document.createElement("a");
+    a.href = f.u;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = f.t;
+    fu.appendChild(a);
+  });
+  art.appendChild(fu);
+  return art;
+}
+
+const VISIBLES_POR_DEFECTO = 4;
+
+function renderPlan(fechas) {
   const cont = $("#lista-consejos");
   cont.replaceChildren();
-  const consejos = motorConsejos(fechas);
-  $("#c-consejos").hidden = !consejos.length;
-  for (const c of consejos) {
-    const fila = document.createElement("div");
-    fila.className = "consejo " + c.tipo;
-    const icono = document.createElement("span");
-    icono.className = "consejo-icono";
-    icono.textContent = c.tipo === "ok" ? "✓" : "→";
-    const p = document.createElement("p");
-    p.textContent = c.texto;
-    fila.appendChild(icono);
-    fila.appendChild(p);
-    cont.appendChild(fila);
+  const plan = motorPlan(fechas);
+  $("#c-consejos").hidden = !plan.length;
+  if (!plan.length) return;
+
+  const acciones = plan.filter((c) => c.estado === "accion");
+  const oks = plan.filter((c) => c.estado === "ok");
+  // Si casi todo está en orden, se muestran a tamaño completo los "ya lo
+  // haces bien" para que la tarjeta siga diciendo cómo mantenerlo.
+  const promovidos = acciones.length < 2 ? oks.slice(0, VISIBLES_POR_DEFECTO - acciones.length) : [];
+
+  const zona = document.createElement("div");
+  zona.className = "plan-lista";
+  [...acciones.slice(0, VISIBLES_POR_DEFECTO), ...promovidos].forEach((c) => zona.appendChild(tarjetaPlan(c)));
+  cont.appendChild(zona);
+
+  const resto = acciones.slice(VISIBLES_POR_DEFECTO);
+  if (resto.length) {
+    const oculto = document.createElement("div");
+    oculto.className = "plan-lista";
+    oculto.hidden = true;
+    resto.forEach((c) => oculto.appendChild(tarjetaPlan(c)));
+    const btn = document.createElement("button");
+    btn.className = "boton-suave plan-mas";
+    btn.type = "button";
+    btn.textContent = `Ver ${resto.length} consejo${resto.length > 1 ? "s" : ""} más`;
+    btn.addEventListener("click", () => {
+      oculto.hidden = !oculto.hidden;
+      btn.textContent = oculto.hidden ? `Ver ${resto.length} consejo${resto.length > 1 ? "s" : ""} más` : "Ver menos";
+    });
+    cont.appendChild(btn);
+    cont.appendChild(oculto);
+  }
+
+  const resumen = oks.filter((c) => !promovidos.includes(c));
+  if (resumen.length) {
+    const h = document.createElement("h4");
+    h.className = "plan-subtitulo";
+    h.textContent = "Lo que ya haces bien";
+    cont.appendChild(h);
+    const ul = document.createElement("ul");
+    ul.className = "plan-oks";
+    for (const c of resumen) {
+      const li = document.createElement("li");
+      const t = document.createElement("strong");
+      t.textContent = c.titulo + ". ";
+      li.appendChild(t);
+      li.appendChild(document.createTextNode(c.dato));
+      ul.appendChild(li);
+    }
+    cont.appendChild(ul);
   }
 }
 
