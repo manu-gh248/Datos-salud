@@ -384,6 +384,127 @@ function graficaApilada(cont, fechas, capas, valores, ops) {
   cont.appendChild(svg);
 }
 
+// --- barras agrupadas: cada serie con su propia barra, no apiladas ---
+// La apilada enseña bien el total, pero esconde si una parte concreta sube o
+// baja. Aquí cada serie tiene su barra, y se puede aislar una sola para
+// seguirla en el tiempo (entonces aparece además su línea de tendencia).
+function graficaAgrupada(cont, fechas, capas, valores, ops) {
+  cont.replaceChildren();
+  const alto = ops.alto || 240;
+  const anchoDisp = anchoDe(cont);
+  // Con muchas semanas y varias series, el grupo necesita un ancho mínimo
+  // legible; si no cabe, la gráfica se desplaza en horizontal.
+  const minGrupo = Math.max(3, capas.length * 4.5);
+  let ancho = Math.max(anchoDisp, fechas.length * (minGrupo + 3) + 60);
+  // Si se pasa por poco, se aprieta un pelo antes que obligar a desplazar.
+  if (ancho < anchoDisp * 1.08) ancho = anchoDisp;
+  const svg = el("svg", { viewBox: `0 0 ${ancho} ${alto}`, width: ancho, height: alto, role: "img" });
+
+  let maxV = 0;
+  for (const d of valores) if (d) for (const c of capas) if ((d[c.clave] || 0) > maxV) maxV = d[c.clave];
+  const ey = escalaY(Math.max(maxV, 1) * 1.08);
+  const fmtY = ops.formatoEjeY ? (v) => ops.formatoEjeY(v, ey.max) : null;
+  const { X, Y, w } = marco(svg, ancho, alto, ey, fechas, fmtY);
+  const paso = fechas.length > 1 ? w / (fechas.length - 1) : w;
+  const grupoW = Math.max(4, Math.min(34, paso - 3));
+  const hueco = capas.length > 1 ? 1 : 0;
+  const barW = Math.max(1.5, (grupoW - hueco * (capas.length - 1)) / capas.length);
+  const base = Y(ey.min);
+
+  valores.forEach((d, i) => {
+    if (!d) return;
+    // El primer y el último grupo se pegan al marco en vez de salirse de él.
+    const x0 = Math.min(Math.max(X(i) - grupoW / 2, MARGEN.izq), ancho - MARGEN.der - grupoW);
+    capas.forEach((c, ci) => {
+      const v = d[c.clave] || 0;
+      if (v <= 0) return;
+      const y = Y(v);
+      const r = el("rect", { x: x0 + ci * (barW + hueco), y, width: barW, height: Math.max(1, base - y), rx: barW > 5 ? 2 : 0, class: "viz-barra" });
+      r.style.fill = c.color;
+      svg.appendChild(r);
+    });
+  });
+
+  // Con una sola serie a la vista, su media móvil deja ver la tendencia.
+  if (ops.tendencia && capas.length === 1 && fechas.length >= 8) {
+    const serie = valores.map((d) => (d && d[capas[0].clave] > 0 ? d[capas[0].clave] : null));
+    const mm = mediaMovil(serie, Math.max(3, Math.round(fechas.length / 10)));
+    svg.appendChild(trazaLinea(mm, X, Y, "var(--s1-linea)"));
+  }
+
+  capaColumnas(svg, fechas, X, paso, alto, (i, ev) => {
+    const d = valores[i];
+    const filas = [{ titulo: true, texto: ops.etiquetaX ? ops.etiquetaX(fechas[i]) : ffechaLarga(fechas[i]) }];
+    if (d) {
+      for (const c of capas) {
+        if (d[c.clave]) filas.push({ valor: ops.formato ? ops.formato(d[c.clave]) : fnum(d[c.clave]), texto: " " + c.nombre, color: c.color });
+      }
+      if (ops.formatoTotal && capas.length > 1) {
+        filas.push({ valor: ops.formatoTotal(suma(capas.map((c) => d[c.clave] || 0))), texto: " total" });
+      }
+    } else filas.push({ valor: "–", texto: " sin datos" });
+    muestraTip(ev.clientX, ev.clientY, filas);
+  });
+
+  const envoltura = document.createElement("div");
+  envoltura.style.overflowX = "auto";
+  envoltura.appendChild(svg);
+  cont.appendChild(envoltura);
+}
+
+// Leyenda que además filtra: al tocar una serie se queda sola.
+function leyendaFiltro(tarjeta, capas, seleccion, alCambiar) {
+  let ley = $(".viz-leyenda", tarjeta);
+  if (!ley) {
+    ley = document.createElement("div");
+    ley.className = "viz-leyenda";
+    $(".cab-tarjeta", tarjeta).after(ley);
+  }
+  ley.replaceChildren();
+  for (const it of capas) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "viz-leyenda-item chip-filtro" + (seleccion && seleccion !== it.clave ? " apagado" : "");
+    chip.setAttribute("aria-pressed", String(seleccion === it.clave));
+    const sw = document.createElement("span");
+    sw.className = it.linea ? "viz-sw-linea" : "viz-sw";
+    sw.style.background = it.color;
+    chip.appendChild(sw);
+    chip.appendChild(document.createTextNode(it.nombre));
+    chip.addEventListener("click", () => alCambiar(seleccion === it.clave ? "" : it.clave));
+    ley.appendChild(chip);
+  }
+  if (seleccion) {
+    const todas = document.createElement("button");
+    todas.type = "button";
+    todas.className = "viz-leyenda-item chip-filtro chip-todas";
+    todas.textContent = "Ver todas";
+    todas.addEventListener("click", () => alCambiar(""));
+    ley.appendChild(todas);
+  } else {
+    const pista = document.createElement("span");
+    pista.className = "chip-pista";
+    pista.textContent = "toca una para verla sola";
+    ley.appendChild(pista);
+  }
+}
+
+// Junta las dos cosas: la leyenda que filtra y la gráfica agrupada, guardando
+// la elección en la propia tarjeta para que sobreviva al cambio de rango.
+function graficaConSelector(tarjeta, fechas, capas, valores, ops) {
+  const pinta = () => {
+    let sel = tarjeta.dataset.serie || "";
+    if (sel && !capas.some((c) => c.clave === sel)) sel = "";
+    const activas = sel ? capas.filter((c) => c.clave === sel) : capas;
+    leyendaFiltro(tarjeta, capas, sel, (clave) => {
+      tarjeta.dataset.serie = clave;
+      pinta();
+    });
+    graficaAgrupada($(".viz", tarjeta), fechas, activas, valores, { ...ops, tendencia: !!sel });
+  };
+  pinta();
+}
+
 // Capa de interacción compartida: una franja por columna, con el blanco de
 // golpe más ancho que la marca; funciona con ratón, dedo y teclado.
 function capaColumnas(svg, fechas, X, paso, alto, alEntrar, alSalir) {
@@ -975,13 +1096,21 @@ function renderSueno(fechas) {
     sub = "Cada noche, tiempo en cada fase. La noche se apunta al día en que te despiertas.";
   }
   $(".sub-tarjeta", tarjeta).textContent = sub;
-  if (capas.length > 1) leyenda(tarjeta, capas);
-  graficaApilada($(".viz", tarjeta), f, capas, valores, {
-    alto: 250,
-    formato: fmtH,
-    formatoTotal: fmtH,
-    formatoEjeY: (v) => fnum(v, 0) + " h",
-  });
+  if (capas.length > 1) {
+    graficaConSelector(tarjeta, f, capas, valores, {
+      alto: 250,
+      formato: fmtH,
+      formatoTotal: fmtH,
+      formatoEjeY: (v, max) => (max >= 2.5 ? fnum(v, 0) + " h" : fnum(v * 60, 0) + " min"),
+    });
+  } else {
+    graficaAgrupada($(".viz", tarjeta), f, capas, valores, {
+      alto: 250,
+      formato: fmtH,
+      formatoEjeY: (v, max) => (max >= 2.5 ? fnum(v, 0) + " h" : fnum(v * 60, 0) + " min"),
+      tendencia: true,
+    });
+  }
   botonTabla(
     tarjeta,
     ["Noche", ...capas.map((c) => c.nombre), "Total"],
@@ -1073,8 +1202,7 @@ function renderEntrenos(fechas) {
   const valores = semanasF.map((s) => grupos.get(s) || null);
 
   const tarjeta = $("#c-entrenos");
-  leyenda(tarjeta, capas);
-  graficaApilada($(".viz", tarjeta), semanasF, capas, valores, {
+  graficaConSelector(tarjeta, semanasF, capas, valores, {
     alto: 240,
     formato: (v) => fnum(v) + " min",
     formatoTotal: (v) => fnum(v) + " min",
@@ -1182,8 +1310,7 @@ function renderPerfilEntrenos(fechas) {
   const valores = semanasF.map((s) => grupos.get(s) || null);
   const capas = PERFILES.filter((p) => valores.some((v) => v && v[p.clave]));
 
-  leyenda(tarjeta, capas);
-  graficaApilada($(".viz", tarjeta), semanasF, capas, valores, {
+  graficaConSelector(tarjeta, semanasF, capas, valores, {
     alto: 220,
     formato: (v) => fnum(v) + " min",
     formatoTotal: (v) => fnum(v) + " min",
