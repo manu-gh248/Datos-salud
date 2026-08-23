@@ -535,6 +535,13 @@ const TOPE_CASILLAS = 3_000_000; // válvula de seguridad para exports enormes
 const TIPOS_MUSCULACION = ["TraditionalStrengthTraining", "FunctionalStrengthTraining", "CoreTraining"];
 const TIPOS_MOVILIDAD = ["Yoga", "Pilates", "MindAndBody", "Flexibility", "Cooldown", "PreparationAndRecovery", "Barre", "TaiChi"];
 
+// Criterio de Manuel (23/08/2026), sobre sus propios entrenos: "fuerte" es
+// pulso medio por encima de 140 y sin subidas y bajadas repetidas; con 124 o
+// 126 de media se está en zona 2, o sea suave, por mucho que ese número sea
+// un porcentaje alto de su máximo. Por eso el umbral es absoluto, en
+// pulsaciones, y no un porcentaje del máximo observado.
+const FC_FUERTE = 140;
+
 // Clave entera y creciente a partir de la hora local: "2026-08-22 07:31:05".
 function casillaDe(s) {
   if (!s) return NaN;
@@ -566,6 +573,19 @@ function anotaPulso(inicio, valor) {
   }
 }
 
+// Mediana de cada casilla con sus dos vecinas: limpia lecturas sueltas
+// disparatadas sin rebajar los picos reales de una serie de intervalos.
+function medianaMovil(v) {
+  if (v.length < 3) return v.slice();
+  const out = [v[0]];
+  for (let i = 1; i < v.length - 1; i++) {
+    const t = [v[i - 1], v[i], v[i + 1]].sort((a, b) => a - b);
+    out.push(t[1]);
+  }
+  out.push(v[v.length - 1]);
+  return out;
+}
+
 // Media móvil corta: quita el ruido latido a latido sin borrar los picos.
 function suaviza(v, n) {
   const out = [];
@@ -587,20 +607,28 @@ function percentil(orden, p) {
   return orden[i];
 }
 
-// Cuenta subidas y bajadas de verdad: cada vez que el pulso sube por encima
-// de un umbral alto y luego baja por debajo de uno bajo, es una repetición.
-function cuentaOscilaciones(v, alto, bajo) {
-  let n = 0,
-    estado = v[0] >= alto ? "arriba" : "abajo";
+// Cuenta repeticiones por la altura del pico, no con umbrales fijos: se
+// confirma un pico cuando el pulso cae `delta` desde su máximo reciente, y un
+// valle cuando sube `delta` desde su mínimo. Así da igual dónde caiga el
+// calentamiento o si se cuela una lectura suelta: lo que cuenta es el vaivén.
+function cuentaPicos(v, delta) {
+  let picos = 0,
+    minV = v[0],
+    maxV = v[0],
+    buscando = "pico";
   for (const x of v) {
-    if (estado === "abajo" && x >= alto) {
-      estado = "arriba";
-      n++;
-    } else if (estado === "arriba" && x <= bajo) {
-      estado = "abajo";
+    if (x > maxV) maxV = x;
+    if (x < minV) minV = x;
+    if (buscando === "pico" && x < maxV - delta) {
+      picos++;
+      buscando = "valle";
+      minV = x;
+    } else if (buscando === "valle" && x > minV + delta) {
+      buscando = "pico";
+      maxV = x;
     }
   }
-  return n;
+  return picos;
 }
 
 // Recorta la curva a 40 puntos para poder dibujarla sin engordar el guardado.
@@ -661,28 +689,29 @@ function perfilaEntrenos() {
       continue;
     }
 
-    const suave = suaviza(medias, 1); // ventana de 90 s
+    // Mediana de tres casillas: quita la lectura suelta disparatada pero, a
+    // diferencia de la media, NO achata los picos de una serie corta (con
+    // repeticiones de un minuto la media los borraba y no se detectaban).
+    const suave = medianaMovil(medias);
     const orden = [...suave].sort((a, b) => a - b);
     const p10 = percentil(orden, 0.1),
       p90 = percentil(orden, 0.9);
     const amplitud = p90 - p10;
     const mediaFC = suave.reduce((a, b) => a + b, 0) / suave.length;
-    // Umbrales sacados de la propia sesión: se cuenta una repetición cuando
-    // el pulso sube a la zona alta de SU rango y luego vuelve a la baja.
-    // Para contar una repetición hace falta un vaivén de verdad (al menos
-    // una docena de pulsaciones), no el temblor normal de un ritmo sostenido.
-    const alto = p10 + Math.max(12, amplitud * 0.6),
-      bajo = p10 + Math.max(6, amplitud * 0.3);
-    const oscilaciones = amplitud >= 15 ? cuentaOscilaciones(suave, alto, bajo) : 0;
+    // El vaivén tiene que ser de al menos una decena de pulsaciones para no
+    // confundirlo con el temblor normal de un ritmo sostenido.
+    const delta = Math.max(9, amplitud * 0.25);
+    const oscilaciones = amplitud >= 12 ? cuentaPicos(suave, delta) : 0;
     const pctMax = fcMaxRef ? (mediaFC / fcMaxRef) * 100 : null;
+    const vaiven = oscilaciones >= 2 && amplitud >= 15;
 
     let perfil;
     if (TIPOS_MUSCULACION.includes(e.tipo)) perfil = "musculacion";
     else if (TIPOS_MOVILIDAD.includes(e.tipo)) perfil = "movilidad";
-    else if (oscilaciones >= 3 && amplitud >= 15) perfil = "intervalos";
+    else if (vaiven) perfil = "intervalos";
+    else if (oscilaciones >= 3 && amplitud >= 12) perfil = "intervalos";
     else if (e.tipo === "HighIntensityIntervalTraining" && amplitud >= 12) perfil = "intervalos";
-    else if (amplitud >= 25 && oscilaciones >= 2) perfil = "intervalos";
-    else if (pctMax != null && pctMax >= 78) perfil = "continuoFuerte";
+    else if (mediaFC > FC_FUERTE) perfil = "continuoFuerte";
     else perfil = "continuoSuave";
 
     e.perfil = perfil;
