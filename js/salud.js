@@ -775,7 +775,8 @@ function guardaLocal() {
 
 // ---------- arranque de la app ----------
 function arrancaApp() {
-  $("#cargador").hidden = true;
+  const cargador = $("#cargador"); // en un informe no existe: los datos ya vienen dentro
+  if (cargador) cargador.hidden = true;
   $("#app").hidden = false;
 
   const meta = DATOS.meta;
@@ -786,7 +787,12 @@ function arrancaApp() {
     (nombres.length ? ` · ${nombres.slice(0, 3).join(", ")}${masDe3}` : "");
 
   renderInventario();
-  aplicaPreset(RANGO.dias || 90);
+  if (!RANGO.dias && RANGO.ini && RANGO.fin) {
+    // Rango a medida (viene de un informe): se respeta tal cual.
+    $$("#filtros .preset").forEach((x) => x.classList.remove("activo"));
+    pintaFechasPersonalizadas();
+    render();
+  } else aplicaPreset(RANGO.dias || 90);
   $$("#filtros .preset").forEach((b) => {
     b.addEventListener("click", () => {
       $$("#filtros .preset").forEach((x) => x.classList.remove("activo"));
@@ -2792,6 +2798,8 @@ const REF_HRV = { 20: [[55, 90], [90, 140]], 30: [[48, 80], [80, 130]], 40: [[40
 const REF_VO2 = { 20: [[42, 46], [52, 60]], 30: [[40, 43], [49, 58]], 40: [[36, 40], [46, 55]], 50: [[33, 36], [42, 52]], 60: [[29, 32], [38, 48]], 70: [[26, 29], [35, 45]] };
 
 function edadUsuario() {
+  // En un informe la fecha de nacimiento no viaja: solo la edad ya calculada.
+  if (DATOS.meta && DATOS.meta.edad) return DATOS.meta.edad;
   if (DATOS.meta && DATOS.meta.nacimiento) {
     const e = Math.floor((new Date(RANGO.fin) - new Date(DATOS.meta.nacimiento)) / 31557600000);
     if (e >= 18 && e <= 100) return e;
@@ -3525,17 +3533,25 @@ function pistasMedicacion() {
 }
 
 // ---------- arranque ----------
-iniciaCarga();
-$("#borrar").addEventListener("click", () => {
-  localStorage.removeItem(CLAVE_LS);
-  location.reload();
-});
-$("#otro-archivo").addEventListener("click", () => {
-  $("#app").hidden = true;
-  $("#cargador").hidden = false;
-  $("#zona-carga").hidden = false;
-  $("#cargando").hidden = true;
-});
+// Dos modos. En la app normal se carga el export.zip y se recuerda en este
+// navegador. En un informe (el .html autocontenido que genera js/informe.js)
+// los datos ya vienen dentro del archivo: no hay carga, no se guarda nada en
+// el navegador de quien lo abre y los botones de la app no existen.
+const INFORME = typeof window !== "undefined" ? window.INFORME_SALUD : null;
+
+if (!INFORME) {
+  iniciaCarga();
+  $("#borrar").addEventListener("click", () => {
+    localStorage.removeItem(CLAVE_LS);
+    location.reload();
+  });
+  $("#otro-archivo").addEventListener("click", () => {
+    $("#app").hidden = true;
+    $("#cargador").hidden = false;
+    $("#zona-carga").hidden = false;
+    $("#cargando").hidden = true;
+  });
+}
 $("#edad-aplicar").addEventListener("click", () => {
   const e = parseInt($("#edad-manual").value, 10);
   if (e >= 18 && e <= 100) {
@@ -3546,13 +3562,24 @@ $("#edad-aplicar").addEventListener("click", () => {
   }
 });
 
-try {
-  const guardado = localStorage.getItem(CLAVE_LS);
-  if (guardado) {
-    DATOS = JSON.parse(guardado);
-    if (DATOS && DATOS.meta && DATOS.meta.fechaMax) arrancaApp();
-    else DATOS = null;
+if (INFORME) {
+  DATOS = INFORME.datos;
+  if (INFORME.rango) RANGO = INFORME.rango;
+  arrancaApp();
+  const gen = new Date(DATOS.meta.generado || Date.now());
+  $("#resumen-datos").textContent =
+    `Periodo del ${ffechaLarga(RANGO.ini)} al ${ffechaLarga(RANGO.fin)} · informe generado el ${ffechaLarga(
+      gen.toISOString().slice(0, 10)
+    )}`;
+} else {
+  try {
+    const guardado = localStorage.getItem(CLAVE_LS);
+    if (guardado) {
+      DATOS = JSON.parse(guardado);
+      if (DATOS && DATOS.meta && DATOS.meta.fechaMax) arrancaApp();
+      else DATOS = null;
+    }
+  } catch (e) {
+    DATOS = null;
   }
-} catch (e) {
-  DATOS = null;
 }
